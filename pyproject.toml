@@ -26,7 +26,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dynamic = ["version"]
-dependencies = ["array-api-compat"]
+dependencies = [
+    # DNM main plus #211, #205, #207
+    "array-api-compat @ git+https://github.com/crusaderky/array-api-compat.git@9761bf2c2790416e3c117ed9f64407525b4a3498"
+]
 
 [project.optional-dependencies]
 tests = [
@@ -54,6 +57,10 @@ Changelog = "https://github.com/data-apis/array-api-extra/releases"
 
 [tool.hatch]
 version.path = "src/array_api_extra/__init__.py"
+
+# DNM enable git dependencies
+[tool.hatch.metadata]
+allow-direct-references = true
 
 
 # Pixi
