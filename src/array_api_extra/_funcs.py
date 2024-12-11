@@ -683,7 +683,7 @@ class at:  # pylint: disable=invalid-name
         xp: ModuleType | None = None,
         _is_update: bool = True,
         **kwargs: Untyped,
-    ) -> tuple[Untyped, None] | tuple[None, Array]:
+    ) -> tuple[Array, None] | tuple[None, Array]:
         """Perform common prepocessing.
 
         Returns
@@ -704,16 +704,22 @@ class at:  # pylint: disable=invalid-name
 
         x = self.x
 
+        if copy not in (True, False, None):
+            msg = f"copy must be True, False, or None; got {copy!r}"  # pyright: ignore[reportUnreachable]
+            raise ValueError(msg)
+
         if copy is None:
             writeable = is_writeable_array(x)
             copy = _is_update and not writeable
         elif copy:
             writeable = None
-        else:
+        elif _is_update:
             writeable = is_writeable_array(x)
             if not writeable:
                 msg = "Cannot modify parameter in place"
                 raise ValueError(msg)
+        else:
+            writeable = None
 
         if copy:
             try:
@@ -723,10 +729,10 @@ class at:  # pylint: disable=invalid-name
                 # with a copy followed by an update
                 if xp is None:
                     xp = array_namespace(x)
-                # Create writeable copy of read-only numpy array
                 x = xp.asarray(x, copy=True)
                 if writeable is False:
                     # A copy of a read-only numpy array is writeable
+                    # Note: this assumes that a copy of a writeable array is writeable
                     writeable = None
             else:
                 # Use JAX's at[] or other library that with the same duck-type API
@@ -743,12 +749,18 @@ class at:  # pylint: disable=invalid-name
 
         return None, x
 
-    def get(self, **kwargs: Untyped) -> Untyped:
+    def get(
+        self,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+        **kwargs: Untyped,
+    ) -> Untyped:
         """Return ``x[idx]``. In addition to plain ``__getitem__``, this allows ensuring
         that the output is either a copy or a view; it also allows passing
         keyword arguments to the backend.
         """
-        if kwargs.get("copy") is False:
+        if copy is False:
             if is_array_api_obj(self.idx):
                 # Boolean index. Note that the array API spec
                 # https://data-apis.org/array-api/latest/API_specification/indexing.html
@@ -758,19 +770,38 @@ class at:  # pylint: disable=invalid-name
                 # which can be caught by testing the user code vs. array-api-strict.
                 msg = "get() with an array index always returns a copy"
                 raise ValueError(msg)
+
+            # Prevent scalar indices together with copy=False.
+            # Even if some backends may return a scalar view of the original, we chose to be
+            # strict here beceause some other backends, such as numpy, definitely don't.
+            tup_idx = self.idx if isinstance(self.idx, tuple) else (self.idx,)
+            if any(
+                i is not None and i is not Ellipsis and not isinstance(i, slice)
+                for i in tup_idx
+            ):
+                msg = "get() with a scalar index typically returns a copy"
+                raise ValueError(msg)
+
             if is_dask_array(self.x):
                 msg = "get() on Dask arrays always returns a copy"
                 raise ValueError(msg)
 
-        res, x = self._common("get", _is_update=False, **kwargs)
+        res, x = self._common("get", copy=copy, xp=xp, _is_update=False, **kwargs)
         if res is not None:
             return res
         assert x is not None
         return x[self.idx]
 
-    def set(self, y: Array, /, **kwargs: Untyped) -> Array:
+    def set(
+        self,
+        y: Array,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+        **kwargs: Untyped,
+    ) -> Array:
         """Apply ``x[idx] = y`` and return the update array"""
-        res, x = self._common("set", y, **kwargs)
+        res, x = self._common("set", y, copy=copy, xp=xp, **kwargs)
         if res is not None:
             return res
         assert x is not None
@@ -785,6 +816,8 @@ class at:  # pylint: disable=invalid-name
         elwise_op: Callable[[Array, Array], Array],
         y: Array,
         /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
         **kwargs: Untyped,
     ) -> Array:
         """x[idx] += y or equivalent in-place operation on a subset of x
@@ -796,41 +829,92 @@ class at:  # pylint: disable=invalid-name
         Consider for example when x is a numpy array and idx is a fancy index, which
         triggers a deep copy on __getitem__.
         """
-        res, x = self._common(at_op, y, **kwargs)
+        res, x = self._common(at_op, y, copy=copy, xp=xp, **kwargs)
         if res is not None:
             return res
         assert x is not None
         x[self.idx] = elwise_op(x[self.idx], y)
         return x
 
-    def add(self, y: Array, /, **kwargs: Untyped) -> Array:
+    def add(
+        self,
+        y: Array,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+        **kwargs: Untyped,
+    ) -> Array:
         """Apply ``x[idx] += y`` and return the updated array"""
-        return self._iop("add", operator.add, y, **kwargs)
+        return self._iop("add", operator.add, y, copy=copy, xp=xp, **kwargs)
 
-    def subtract(self, y: Array, /, **kwargs: Untyped) -> Array:
+    def subtract(
+        self,
+        y: Array,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+        **kwargs: Untyped,
+    ) -> Array:
         """Apply ``x[idx] -= y`` and return the updated array"""
-        return self._iop("subtract", operator.sub, y, **kwargs)
+        return self._iop("subtract", operator.sub, y, copy=copy, xp=xp, **kwargs)
 
-    def multiply(self, y: Array, /, **kwargs: Untyped) -> Array:
+    def multiply(
+        self,
+        y: Array,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+        **kwargs: Untyped,
+    ) -> Array:
         """Apply ``x[idx] *= y`` and return the updated array"""
-        return self._iop("multiply", operator.mul, y, **kwargs)
+        return self._iop("multiply", operator.mul, y, copy=copy, xp=xp, **kwargs)
 
-    def divide(self, y: Array, /, **kwargs: Untyped) -> Array:
+    def divide(
+        self,
+        y: Array,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+        **kwargs: Untyped,
+    ) -> Array:
         """Apply ``x[idx] /= y`` and return the updated array"""
-        return self._iop("divide", operator.truediv, y, **kwargs)
+        return self._iop("divide", operator.truediv, y, copy=copy, xp=xp, **kwargs)
 
-    def power(self, y: Array, /, **kwargs: Untyped) -> Array:
+    def power(
+        self,
+        y: Array,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+        **kwargs: Untyped,
+    ) -> Array:
         """Apply ``x[idx] **= y`` and return the updated array"""
-        return self._iop("power", operator.pow, y, **kwargs)
+        return self._iop("power", operator.pow, y, copy=copy, xp=xp, **kwargs)
 
-    def min(self, y: Array, /, **kwargs: Untyped) -> Array:
+    def min(
+        self,
+        y: Array,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+        **kwargs: Untyped,
+    ) -> Array:
         """Apply ``x[idx] = minimum(x[idx], y)`` and return the updated array"""
-        xp = array_namespace(self.x)
+        if xp is None:
+            xp = array_namespace(self.x)
         y = xp.asarray(y)
-        return self._iop("min", xp.minimum, y, **kwargs)
+        return self._iop("min", xp.minimum, y, copy=copy, xp=xp, **kwargs)
 
-    def max(self, y: Array, /, **kwargs: Untyped) -> Array:
+    def max(
+        self,
+        y: Array,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+        **kwargs: Untyped,
+    ) -> Array:
         """Apply ``x[idx] = maximum(x[idx], y)`` and return the updated array"""
-        xp = array_namespace(self.x)
+        if xp is None:
+            xp = array_namespace(self.x)
         y = xp.asarray(y)
-        return self._iop("max", xp.maximum, y, **kwargs)
+        return self._iop("max", xp.maximum, y, copy=copy, xp=xp, **kwargs)

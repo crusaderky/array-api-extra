@@ -9,6 +9,7 @@ import pytest
 from array_api_compat import (  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
     array_namespace,
     is_dask_array,
+    is_numpy_array,
     is_pydata_sparse_array,
     is_writeable_array,
 )
@@ -110,6 +111,14 @@ def test_get(array: Array, copy: bool | None):
             return
         expect_copy = True
 
+    # get(copy=False) on a read-only numpy array returns a read-only view
+    if is_numpy_array(array) and not copy and not array.flags.writeable:
+        out = at(array, slice(2)).get(copy=copy)
+        assert_array_equal(out, [10.0, 20.0])
+        assert out.base is array
+        assert not out.flags.writeable
+        return
+
     with assert_copy(array, expect_copy):
         y = at(array, slice(2)).get(copy=copy)
         assert isinstance(y, type(array))
@@ -117,6 +126,18 @@ def test_get(array: Array, copy: bool | None):
         # Let assert_copy test that y is a view or copy
         with suppress(TypeError, ValueError):
             y[:] = 40
+
+
+def test_get_scalar_nocopy(array: Array):
+    """get(copy=False) with a scalar index always raises, because some backends
+    such as numpy and sparse return a np.generic instead of a scalar view
+    """
+    with pytest.raises(ValueError, match="scalar"):
+        at(array)[0].get(copy=False)
+    with pytest.raises(ValueError, match="scalar"):
+        at(array)[(0, )].get(copy=False)
+    with pytest.raises(ValueError, match="scalar"):
+        at(array)[..., 0].get(copy=False)
 
 
 def test_get_bool_indices(array: Array):
@@ -146,10 +167,17 @@ def test_get_bool_indices(array: Array):
 def test_copy_invalid():
     a = np.asarray([1, 2, 3])
     with pytest.raises(ValueError, match="copy"):
-        at(a, 0).set(4, copy="invalid")
+        at(a, 0).set(4, copy="invalid")  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]
 
 
 def test_xp():
     a = np.asarray([1, 2, 3])
-    b = at(a, 0).set(4, xp=np)
-    assert_array_equal(b, [4, 2, 3])
+    at(a, 0).get(xp=np)
+    at(a, 0).set(4, xp=np)
+    at(a, 0).add(4, xp=np)
+    at(a, 0).subtract(4, xp=np)
+    at(a, 0).multiply(4, xp=np)
+    at(a, 0).divide(4, xp=np)
+    at(a, 0).power(4, xp=np)
+    at(a, 0).min(4, xp=np)
+    at(a, 0).max(4, xp=np)
