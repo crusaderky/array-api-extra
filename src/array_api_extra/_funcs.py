@@ -693,9 +693,8 @@ class at:  # pylint: disable=invalid-name
         copy: bool | None = True,
         xp: ModuleType | None = None,
     ) -> Array:
-        """Return ``xp.asarray(x[idx])``. In addition to plain ``__getitem__``, this allows
-        ensuring that the output is either a copy or a view; it also allows passing
-        keyword arguments to the backend.
+        """Return ``xp.asarray(x[idx])``. In addition to plain ``__getitem__``,
+        this allows ensuring that the output is either a copy or a view
         """
         self._check_args(copy=copy)
         x = self.x
@@ -782,7 +781,7 @@ class at:  # pylint: disable=invalid-name
             writeable = is_writeable_array(x)
         if not writeable:
             # sparse crashes here
-            msg = f"Array {x} has no `at` method and is read-only"
+            msg = f"Can't update read-only array {x}"
             raise ValueError(msg)
 
         return None, x
