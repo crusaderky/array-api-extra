@@ -10,6 +10,8 @@ def test_vendor_compat():
         device,
         is_array_api_obj,
         is_dask_array,
+        is_jax_array,
+        is_pydata_sparse_array,
         is_writeable_array,
     )
 
@@ -19,6 +21,8 @@ def test_vendor_compat():
     assert is_array_api_obj(x)
     assert not is_array_api_obj(123)
     assert not is_dask_array(x)
+    assert not is_jax_array(x)
+    assert not is_pydata_sparse_array(x)
     assert is_writeable_array(x)
 
 

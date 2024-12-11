@@ -127,6 +127,27 @@ python = "~=3.10.0"
 [tool.pixi.feature.py313.dependencies]
 python = "~=3.13.0"
 
+[tool.pixi.feature.backends.target.linux-64.dependencies]
+cupy = "*"
+pytorch = "*"
+dask = "*"
+sparse = ">=0.15"
+jax = "*"
+
+[tool.pixi.feature.backends.target.osx-arm64.dependencies]
+# cupy = "*"
+pytorch = "*"
+dask = "*"
+sparse = ">=0.15"
+jax = "*"
+
+[tool.pixi.feature.backends.target.win-64.dependencies]
+cupy = "*"
+# pytorch = "*"
+dask = "*"
+sparse = ">=0.15"
+# jax = "*"
+
 [tool.pixi.environments]
 default = { solve-group = "default" }
 lint = { features = ["lint"], solve-group = "default" }
@@ -135,6 +156,7 @@ docs = { features = ["docs"], solve-group = "default" }
 dev = { features = ["lint", "tests", "docs", "dev"], solve-group = "default" }
 ci-py310 = ["py310", "tests"]
 ci-py313 = ["py313", "tests"]
+ci-backends = ["py310", "tests", "backends"]
 
 
 # pytest
@@ -232,6 +254,7 @@ ignore = [
     "PLR09",   # Too many <...>
     "PLR2004", # Magic value used in comparison
     "ISC001",  # Conflicts with formatter
+    "PD008",   # Use `.loc` instead of `.at`
 ]
 
 [tool.ruff.lint.per-file-ignores]

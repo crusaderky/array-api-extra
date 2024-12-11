@@ -135,7 +135,7 @@ def test_get_scalar_nocopy(array: Array):
     with pytest.raises(ValueError, match="scalar"):
         at(array)[0].get(copy=False)
     with pytest.raises(ValueError, match="scalar"):
-        at(array)[(0, )].get(copy=False)
+        at(array)[(0,)].get(copy=False)
     with pytest.raises(ValueError, match="scalar"):
         at(array)[..., 0].get(copy=False)
 

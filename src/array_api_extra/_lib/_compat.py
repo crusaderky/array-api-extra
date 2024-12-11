@@ -8,6 +8,8 @@ try:
         device,
         is_array_api_obj,
         is_dask_array,
+        is_jax_array,
+        is_pydata_sparse_array,
         is_writeable_array,
     )
 except ImportError:
@@ -16,6 +18,8 @@ except ImportError:
         device,
         is_array_api_obj,
         is_dask_array,
+        is_jax_array,
+        is_pydata_sparse_array,
         is_writeable_array,
     )
 
@@ -24,5 +28,7 @@ __all__ = (
     "device",
     "is_array_api_obj",
     "is_dask_array",
+    "is_jax_array",
+    "is_pydata_sparse_array",
     "is_writeable_array",
 )

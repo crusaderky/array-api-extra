@@ -13,11 +13,13 @@ from ._lib._compat import (
     array_namespace,
     is_array_api_obj,
     is_dask_array,
+    is_jax_array,
+    is_pydata_sparse_array,
     is_writeable_array,
 )
 
 if typing.TYPE_CHECKING:
-    from ._lib._typing import Array, Index, ModuleType, Untyped
+    from ._lib._typing import Array, Index, ModuleType
 
 __all__ = [
     "at",
@@ -593,11 +595,6 @@ class at:  # pylint: disable=invalid-name
     xp : array_namespace, optional
         The standard-compatible namespace for `x`. Default: infer
 
-    **kwargs:
-        If the backend supports an `at` method, any additional keyword
-        arguments are passed to it verbatim; e.g. this allows passing
-        ``indices_are_sorted=True`` to JAX.
-
     Returns
     -------
     Updated input array.
@@ -674,23 +671,7 @@ class at:  # pylint: disable=invalid-name
         self.idx = idx
         return self
 
-    def _common(
-        self,
-        at_op: str,
-        y: Array = _undef,
-        /,
-        copy: bool | None = True,
-        xp: ModuleType | None = None,
-        _is_update: bool = True,
-        **kwargs: Untyped,
-    ) -> tuple[Array, None] | tuple[None, Array]:
-        """Perform common prepocessing.
-
-        Returns
-        -------
-        If the operation can be resolved by at[], (return value, None)
-        Otherwise, (None, preprocessed x)
-        """
+    def _check_args(self, /, copy: bool | None) -> None:
         if self.idx is _undef:
             msg = (
                 "Index has not been set.\n"
@@ -702,64 +683,23 @@ class at:  # pylint: disable=invalid-name
             )
             raise TypeError(msg)
 
-        x = self.x
-
         if copy not in (True, False, None):
             msg = f"copy must be True, False, or None; got {copy!r}"  # pyright: ignore[reportUnreachable]
             raise ValueError(msg)
-
-        if copy is None:
-            writeable = is_writeable_array(x)
-            copy = _is_update and not writeable
-        elif copy:
-            writeable = None
-        elif _is_update:
-            writeable = is_writeable_array(x)
-            if not writeable:
-                msg = "Cannot modify parameter in place"
-                raise ValueError(msg)
-        else:
-            writeable = None
-
-        if copy:
-            try:
-                at_ = x.at
-            except AttributeError:
-                # Emulate at[] behaviour for non-JAX arrays
-                # with a copy followed by an update
-                if xp is None:
-                    xp = array_namespace(x)
-                x = xp.asarray(x, copy=True)
-                if writeable is False:
-                    # A copy of a read-only numpy array is writeable
-                    # Note: this assumes that a copy of a writeable array is writeable
-                    writeable = None
-            else:
-                # Use JAX's at[] or other library that with the same duck-type API
-                args = (y,) if y is not _undef else ()
-                return getattr(at_[self.idx], at_op)(*args, **kwargs), None
-
-        if _is_update:
-            if writeable is None:
-                writeable = is_writeable_array(x)
-            if not writeable:
-                # sparse crashes here
-                msg = f"Array {x} has no `at` method and is read-only"
-                raise ValueError(msg)
-
-        return None, x
 
     def get(
         self,
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
-    ) -> Untyped:
-        """Return ``x[idx]``. In addition to plain ``__getitem__``, this allows ensuring
-        that the output is either a copy or a view; it also allows passing
+    ) -> Array:
+        """Return ``xp.asarray(x[idx])``. In addition to plain ``__getitem__``, this allows
+        ensuring that the output is either a copy or a view; it also allows passing
         keyword arguments to the backend.
         """
+        self._check_args(copy=copy)
+        x = self.x
+
         if copy is False:
             if is_array_api_obj(self.idx):
                 # Boolean index. Note that the array API spec
@@ -782,15 +722,70 @@ class at:  # pylint: disable=invalid-name
                 msg = "get() with a scalar index typically returns a copy"
                 raise ValueError(msg)
 
-            if is_dask_array(self.x):
-                msg = "get() on Dask arrays always returns a copy"
+            # Note: this is not the same list of backends as is_writeable_array()
+            if is_dask_array(x) or is_jax_array(x) or is_pydata_sparse_array(x):
+                msg = f"get() on {array_namespace(x)} arrays always returns a copy"
                 raise ValueError(msg)
 
-        res, x = self._common("get", copy=copy, xp=xp, _is_update=False, **kwargs)
-        if res is not None:
-            return res
-        assert x is not None
-        return x[self.idx]
+        if is_jax_array(x):
+            # Use JAX's at[] or other library that with the same duck-type API
+            return x.at[self.idx].get()
+
+        if xp is None:
+            xp = array_namespace(x)
+        # Note: when self.idx is a boolean mask, numpy always returns a deep copy.
+        # However, some backends may legitimately return a view when the mask can
+        # be downgraded to a slice, e.g. a[[True, True, False]] -> a[:2].
+        # Err on the side of caution and perform a double-copy in numpy.
+        return xp.asarray(x[self.idx], copy=copy)
+
+    def _update_common(
+        self,
+        at_op: str,
+        y: Array = _undef,
+        /,
+        copy: bool | None = True,
+        xp: ModuleType | None = None,
+    ) -> tuple[Array, None] | tuple[None, Array]:
+        """Perform common prepocessing to all update operations.
+
+        Returns
+        -------
+        If the operation can be resolved by at[], (return value, None)
+        Otherwise, (None, preprocessed x)
+        """
+        x = self.x
+        if copy is None:
+            writeable = is_writeable_array(x)
+            copy = not writeable
+        elif copy:
+            writeable = None
+        else:
+            writeable = is_writeable_array(x)
+
+        if copy:
+            if is_jax_array(x):
+                # Use JAX's at[] or other library that with the same duck-type API
+                func = getattr(x.at[self.idx], at_op)
+                return func(y) if y is not _undef else func(), None
+            # Emulate at[] behaviour for non-JAX arrays
+            # with a copy followed by an update
+            if xp is None:
+                xp = array_namespace(x)
+            x = xp.asarray(x, copy=True)
+            if writeable is False:
+                # A copy of a read-only numpy array is writeable
+                # Note: this assumes that a copy of a writeable array is writeable
+                writeable = None
+
+        if writeable is None:
+            writeable = is_writeable_array(x)
+        if not writeable:
+            # sparse crashes here
+            msg = f"Array {x} has no `at` method and is read-only"
+            raise ValueError(msg)
+
+        return None, x
 
     def set(
         self,
@@ -798,10 +793,10 @@ class at:  # pylint: disable=invalid-name
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
     ) -> Array:
         """Apply ``x[idx] = y`` and return the update array"""
-        res, x = self._common("set", y, copy=copy, xp=xp, **kwargs)
+        self._check_args(copy=copy)
+        res, x = self._update_common("set", y, copy=copy, xp=xp)
         if res is not None:
             return res
         assert x is not None
@@ -818,7 +813,6 @@ class at:  # pylint: disable=invalid-name
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
     ) -> Array:
         """x[idx] += y or equivalent in-place operation on a subset of x
 
@@ -829,7 +823,8 @@ class at:  # pylint: disable=invalid-name
         Consider for example when x is a numpy array and idx is a fancy index, which
         triggers a deep copy on __getitem__.
         """
-        res, x = self._common(at_op, y, copy=copy, xp=xp, **kwargs)
+        self._check_args(copy=copy)
+        res, x = self._update_common(at_op, y, copy=copy, xp=xp)
         if res is not None:
             return res
         assert x is not None
@@ -842,10 +837,9 @@ class at:  # pylint: disable=invalid-name
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
     ) -> Array:
         """Apply ``x[idx] += y`` and return the updated array"""
-        return self._iop("add", operator.add, y, copy=copy, xp=xp, **kwargs)
+        return self._iop("add", operator.add, y, copy=copy, xp=xp)
 
     def subtract(
         self,
@@ -853,10 +847,9 @@ class at:  # pylint: disable=invalid-name
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
     ) -> Array:
         """Apply ``x[idx] -= y`` and return the updated array"""
-        return self._iop("subtract", operator.sub, y, copy=copy, xp=xp, **kwargs)
+        return self._iop("subtract", operator.sub, y, copy=copy, xp=xp)
 
     def multiply(
         self,
@@ -864,10 +857,9 @@ class at:  # pylint: disable=invalid-name
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
     ) -> Array:
         """Apply ``x[idx] *= y`` and return the updated array"""
-        return self._iop("multiply", operator.mul, y, copy=copy, xp=xp, **kwargs)
+        return self._iop("multiply", operator.mul, y, copy=copy, xp=xp)
 
     def divide(
         self,
@@ -875,10 +867,9 @@ class at:  # pylint: disable=invalid-name
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
     ) -> Array:
         """Apply ``x[idx] /= y`` and return the updated array"""
-        return self._iop("divide", operator.truediv, y, copy=copy, xp=xp, **kwargs)
+        return self._iop("divide", operator.truediv, y, copy=copy, xp=xp)
 
     def power(
         self,
@@ -886,10 +877,9 @@ class at:  # pylint: disable=invalid-name
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
     ) -> Array:
         """Apply ``x[idx] **= y`` and return the updated array"""
-        return self._iop("power", operator.pow, y, copy=copy, xp=xp, **kwargs)
+        return self._iop("power", operator.pow, y, copy=copy, xp=xp)
 
     def min(
         self,
@@ -897,13 +887,12 @@ class at:  # pylint: disable=invalid-name
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
     ) -> Array:
         """Apply ``x[idx] = minimum(x[idx], y)`` and return the updated array"""
         if xp is None:
             xp = array_namespace(self.x)
         y = xp.asarray(y)
-        return self._iop("min", xp.minimum, y, copy=copy, xp=xp, **kwargs)
+        return self._iop("min", xp.minimum, y, copy=copy, xp=xp)
 
     def max(
         self,
@@ -911,10 +900,9 @@ class at:  # pylint: disable=invalid-name
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
-        **kwargs: Untyped,
     ) -> Array:
         """Apply ``x[idx] = maximum(x[idx], y)`` and return the updated array"""
         if xp is None:
             xp = array_namespace(self.x)
         y = xp.asarray(y)
-        return self._iop("max", xp.maximum, y, copy=copy, xp=xp, **kwargs)
+        return self._iop("max", xp.maximum, y, copy=copy, xp=xp)
