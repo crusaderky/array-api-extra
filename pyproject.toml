@@ -127,26 +127,34 @@ python = "~=3.10.0"
 [tool.pixi.feature.py313.dependencies]
 python = "~=3.13.0"
 
+# Backends that can run on CPU-only hosts
 [tool.pixi.feature.backends.target.linux-64.dependencies]
-cupy = "*"
 pytorch = "*"
 dask = "*"
 sparse = ">=0.15"
 jax = "*"
 
 [tool.pixi.feature.backends.target.osx-arm64.dependencies]
-# cupy = "*"
 pytorch = "*"
 dask = "*"
 sparse = ">=0.15"
 jax = "*"
 
 [tool.pixi.feature.backends.target.win-64.dependencies]
-cupy = "*"
-# pytorch = "*"
+# pytorch = "*"  # Package unavailable on Windows
 dask = "*"
 sparse = ">=0.15"
-# jax = "*"
+# jax = "*"  # Package unavailable on Windows
+
+# Backends that require a GPU host and a CUDA driver
+[tool.pixi.feature.cuda-backends.target.linux-64.dependencies]
+cupy = "*"
+
+[tool.pixi.feature.cuda-backends.target.osx-arm64.dependencies]
+# cupy = "*"
+
+[tool.pixi.feature.cuda-backends.target.win-64.dependencies]
+cupy = "*"
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
@@ -156,8 +164,8 @@ docs = { features = ["docs"], solve-group = "default" }
 dev = { features = ["lint", "tests", "docs", "dev"], solve-group = "default" }
 ci-py310 = ["py310", "tests"]
 ci-py313 = ["py313", "tests"]
-ci-backends = ["py310", "tests", "backends"]
-
+ci-backends = ["py310", "tests", "backends"]  # CUDA not available on free github actions
+tests-backends = ["py310", "tests", "backends", "cuda-backends"]
 
 # pytest
 
