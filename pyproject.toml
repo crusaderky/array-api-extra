@@ -86,7 +86,7 @@ pytest = "*"
 
 [tool.pixi.feature.lint.tasks]
 pre-commit-install = { cmd = "pre-commit install" }
-pre-commit = { cmd = "pre-commit run -v --all-files --show-diff-on-failure" }
+pre-commit = { cmd = "pre-commit run --all-files" }
 mypy = { cmd = "mypy", cwd = "." }
 pylint = { cmd = ["pylint", "array_api_extra"], cwd = "src" }
 pyright = { cmd = "basedpyright", cwd = "." }
@@ -99,8 +99,8 @@ array-api-strict = "*"
 numpy = "*"
 
 [tool.pixi.feature.tests.tasks]
-tests = { cmd = "pytest" }
-tests-ci = { cmd = "pytest -ra --cov --cov-report=xml --cov-report=term --durations=20" }
+tests = { cmd = "pytest -v" }
+tests-ci = { cmd = "pytest -v -ra --cov --cov-report=xml --cov-report=term --durations=20" }
 tests-vendor = { cmd = "pytest vendor_tests" }
 
 [tool.pixi.feature.docs.dependencies]
