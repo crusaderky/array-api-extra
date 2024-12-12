@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from importlib import import_module
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -18,7 +19,7 @@ from array_api_extra import at
 if TYPE_CHECKING:
     from array_api_extra._lib._typing import Array, Untyped
 
-all_libraries: Final = (
+all_libraries = (
     "array_api_strict",
     "numpy",
     "numpy_readonly",
@@ -55,10 +56,7 @@ def assert_array_equal(a: Array, b: Array) -> None:
 
 
 @contextmanager
-def assert_copy(array: Array, copy: bool | None) -> Untyped:  # type: ignore[no-any-decorated]
-    # dask arrays are writeable, but writing to them will hot-swap the
-    # dask graph inside the collection so that anything that references
-    # the original graph, i.e. the input collection, won't be mutated.
+def assert_copy(array: Array, copy: bool | None) -> Generator[None, None, None]:
     if copy is False and not is_writeable_array(array):
         with pytest.raises((TypeError, ValueError)):
             yield
@@ -68,11 +66,20 @@ def assert_copy(array: Array, copy: bool | None) -> Untyped:  # type: ignore[no-
     array_orig = xp.asarray(array, copy=True)
     yield
 
-    expect_copy = not is_writeable_array(array) if copy is None else copy
-    assert_array_equal(xp.all(array == array_orig), expect_copy)
+    if copy is None:
+        copy = not is_writeable_array(array)
+    assert_array_equal(xp.all(array == array_orig), copy)
 
 
-@pytest.mark.parametrize("copy", [True, False, None])
+@pytest.mark.parametrize(
+    ("kwargs", "expect_copy"),
+    [
+        ({"copy": True}, True),
+        ({"copy": False}, False),
+        ({"copy": None}, None),  # Behavior is backend-specific
+        ({}, True),  # Test that the copy parameter defaults to True
+    ],
+)
 @pytest.mark.parametrize(
     ("op", "arg", "expect"),
     [
@@ -87,13 +94,18 @@ def assert_copy(array: Array, copy: bool | None) -> Untyped:  # type: ignore[no-
     ],
 )
 def test_update_ops(
-    array: Array, copy: bool | None, op: str, arg: float, expect: list[float]
+    array: Array,
+    kwargs: dict[str, Untyped],
+    expect_copy: bool | None,
+    op: str,
+    arg: float,
+    expect: list[float],
 ):
     if is_pydata_sparse_array(array):
         pytest.skip("at() does not support updates on sparse arrays")
 
-    with assert_copy(array, copy):
-        y = getattr(at(array, slice(1, None)), op)(arg, copy=copy)
+    with assert_copy(array, expect_copy):
+        y = getattr(at(array)[1:], op)(arg, **kwargs)
         assert isinstance(y, type(array))
         assert_array_equal(y, expect)
 
@@ -114,3 +126,13 @@ def test_xp():
     at(a, 0).power(4, xp=np)
     at(a, 0).min(4, xp=np)
     at(a, 0).max(4, xp=np)
+
+
+def test_alternate_index_syntax():
+    a = np.asarray([1, 2, 3])
+    assert_array_equal(at(a, 0).set(4), [4, 2, 3])
+    assert_array_equal(at(a)[0].set(4), [4, 2, 3])
+    with pytest.raises(ValueError, match="Index"):
+        at(a).set(4)
+    with pytest.raises(ValueError, match="Index"):
+        at(a, 0)[0].set(4)

@@ -712,7 +712,7 @@ class at:  # pylint: disable=invalid-name
                 "    at(x)[idx].set(value)\n"
                 "(same for all other methods)."
             )
-            raise TypeError(msg)
+            raise ValueError(msg)
 
         if copy not in (True, False, None):
             msg = f"copy must be True, False, or None; got {copy!r}"  # pyright: ignore[reportUnreachable]

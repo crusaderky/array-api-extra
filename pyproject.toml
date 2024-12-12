@@ -151,7 +151,7 @@ sparse = ">=0.15"
 cupy = "*"
 
 [tool.pixi.feature.cuda-backends.target.osx-arm64.dependencies]
-# cupy = "*"
+# cupy = "*"  # Package unavailable on macOSX
 
 [tool.pixi.feature.cuda-backends.target.win-64.dependencies]
 cupy = "*"
