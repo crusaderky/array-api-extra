@@ -11,10 +11,7 @@ from typing import ClassVar, Literal
 from ._lib import _utils
 from ._lib._compat import (
     array_namespace,
-    is_array_api_obj,
-    is_dask_array,
     is_jax_array,
-    is_pydata_sparse_array,
     is_writeable_array,
 )
 
@@ -689,73 +686,6 @@ class at:  # pylint: disable=invalid-name
         self._idx = idx
         return self
 
-    def _check_args(self, /, copy: bool | None) -> None:
-        if self._idx is _undef:
-            msg = (
-                "Index has not been set.\n"
-                "Usage: either\n"
-                "    at(x, idx).set(value)\n"
-                "or\n"
-                "    at(x)[idx].set(value)\n"
-                "(same for all other methods)."
-            )
-            raise TypeError(msg)
-
-        if copy not in (True, False, None):
-            msg = f"copy must be True, False, or None; got {copy!r}"  # pyright: ignore[reportUnreachable]
-            raise ValueError(msg)
-
-    def get(
-        self,
-        /,
-        copy: bool | None = True,
-        xp: ModuleType | None = None,
-    ) -> Array:
-        """Return ``xp.asarray(x[idx])``. In addition to plain ``__getitem__``,
-        this allows ensuring that the output is either a copy or a view
-        """
-        self._check_args(copy=copy)
-        x = self._x
-
-        if copy is False:
-            if is_array_api_obj(self._idx):
-                # Boolean index. Note that the array API spec
-                # https://data-apis.org/array-api/latest/API_specification/indexing.html
-                # does not allow for list, tuple, and tuples of slices plus one or more
-                # one-dimensional array indices, although many backends support them.
-                # So this check will encounter a lot of false negatives in real life,
-                # which can be caught by testing the user code vs. array-api-strict.
-                msg = "get() with an array index always returns a copy"
-                raise ValueError(msg)
-
-            # Prevent scalar indices together with copy=False.
-            # Even if some backends may return a scalar view of the original, we chose to be
-            # strict here beceause some other backends, such as numpy, definitely don't.
-            tup_idx = self._idx if isinstance(self._idx, tuple) else (self._idx,)
-            if any(
-                i is not None and i is not Ellipsis and not isinstance(i, slice)
-                for i in tup_idx
-            ):
-                msg = "get() with a scalar index typically returns a copy"
-                raise ValueError(msg)
-
-            # Note: this is not the same list of backends as is_writeable_array()
-            if is_dask_array(x) or is_jax_array(x) or is_pydata_sparse_array(x):
-                msg = f"get() on {array_namespace(x)} arrays always returns a copy"
-                raise ValueError(msg)
-
-        if is_jax_array(x):
-            # Use JAX's at[] or other library that with the same duck-type API
-            return x.at[self._idx].get()
-
-        if xp is None:
-            xp = array_namespace(x)
-        # Note: when idx is a boolean mask, numpy always returns a deep copy.
-        # However, some backends may legitimately return a view when the mask can
-        # be downgraded to a slice, e.g. a[[True, True, False]] -> a[:2].
-        # Err on the side of caution and perform a double-copy in numpy.
-        return xp.asarray(x[self._idx], copy=copy)
-
     def _update_common(
         self,
         at_op: str,
@@ -771,7 +701,23 @@ class at:  # pylint: disable=invalid-name
         If the operation can be resolved by at[], (return value, None)
         Otherwise, (None, preprocessed x)
         """
-        x = self._x
+        x, idx = self._x, self._idx
+
+        if idx is _undef:
+            msg = (
+                "Index has not been set.\n"
+                "Usage: either\n"
+                "    at(x, idx).set(value)\n"
+                "or\n"
+                "    at(x)[idx].set(value)\n"
+                "(same for all other methods)."
+            )
+            raise TypeError(msg)
+
+        if copy not in (True, False, None):
+            msg = f"copy must be True, False, or None; got {copy!r}"  # pyright: ignore[reportUnreachable]
+            raise ValueError(msg)
+
         if copy is None:
             writeable = is_writeable_array(x)
             copy = not writeable
@@ -812,7 +758,6 @@ class at:  # pylint: disable=invalid-name
         xp: ModuleType | None = None,
     ) -> Array:
         """Apply ``x[idx] = y`` and return the update array"""
-        self._check_args(copy=copy)
         res, x = self._update_common("set", y, copy=copy, xp=xp)
         if res is not None:
             return res
@@ -840,7 +785,6 @@ class at:  # pylint: disable=invalid-name
         Consider for example when x is a numpy array and idx is a fancy index, which
         triggers a deep copy on __getitem__.
         """
-        self._check_args(copy=copy)
         res, x = self._update_common(at_op, y, copy=copy, xp=xp)
         if res is not None:
             return res
