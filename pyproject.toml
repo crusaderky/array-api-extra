@@ -102,6 +102,8 @@ numpy = "*"
 tests = { cmd = "pytest -v" }
 tests-ci = { cmd = "pytest -v -ra --cov --cov-report=xml --cov-report=term --durations=20" }
 tests-vendor = { cmd = "pytest vendor_tests" }
+coverage = { cmd = ["coverage", "html"], depends-on = ["tests-ci"] }
+open-coverage = { cmd = ["open", "htmlcov/index.html"], depends-on = ["coverage"] }
 
 [tool.pixi.feature.docs.dependencies]
 sphinx = ">=7.0"
