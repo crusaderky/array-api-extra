@@ -567,19 +567,24 @@ _undef = object()
 
 
 class at:  # pylint: disable=invalid-name
-    """
-    Update operations for read-only arrays.
+    """Update operations for read-only arrays.
 
-    This implements ``jax.numpy.ndarray.at`` for all backends.
+    This implements ``jax.numpy.ndarray.at`` for all writeable
+    backends (those that support ``__setitem__``) and routes
+    to the ``.at[]`` method for JAX arrays.
 
     Parameters
     ----------
     x : array
         Input array.
     idx : index, optional
+        Only `Array API compliant indices
+        <https://data-apis.org/array-api/latest/API_specification/indexing.html>`_
+        are supported.
+
         You may use two alternate syntaxes::
 
-          at(x, idx).set(value)  # or get(), add(), etc.
+          at(x, idx).set(value)  # or add(value), etc.
           at(x)[idx].set(value)
 
     copy : bool, optional
@@ -587,10 +592,10 @@ class at:  # pylint: disable=invalid-name
             Ensure that the inputs are not modified.
         False
             Ensure that the update operation writes back to the input.
-            Raise ValueError if a copy cannot be avoided.
+            Raise ``ValueError`` if a copy cannot be avoided.
         None
-            The array parameter *may* be modified in place if it is possible and
-            beneficial for performance.
+            The array parameter *may* be modified in place if it is
+            possible and beneficial for performance.
             You should not reuse it after calling this function.
     xp : array_namespace, optional
         The standard-compatible namespace for `x`. Default: infer
@@ -615,41 +620,52 @@ class at:  # pylint: disable=invalid-name
       x = x.copy()
       x[1] += 2
 
-    Otherwise, they are the same as::
+    For other known backends, they are the same as::
 
       x[1] += 2
 
     Warning
     -------
-    When you use copy=None, you should always immediately overwrite
+    When you use ``copy=None``, you should always immediately overwrite
     the parameter array::
 
         x = at(x, 0).set(2, copy=None)
 
-    The anti-pattern below must be avoided, as it will result in different behaviour
-    on read-only versus writeable arrays::
+    The anti-pattern below must be avoided, as it will result in different
+    behaviour on read-only versus writeable arrays::
 
         x = xp.asarray([0, 0, 0])
         y = at(x, 0).set(2, copy=None)
         z = at(x, 1).set(3, copy=None)
 
     In the above example, ``x == [0, 0, 0]``, ``y == [2, 0, 0]`` and z == ``[0, 3, 0]``
-    when x is read-only, whereas ``x == y == z == [2, 3, 0]`` when x is writeable!
+    when ``x`` is read-only, whereas ``x == y == z == [2, 3, 0]`` when ``x`` is
+    writeable!
 
     Warning
     -------
     The array API standard does not support integer array indices.
-    The behaviour of update methods when the index is an array of integers
-    is undefined; this is particularly true when the index contains multiple
-    occurrences of the same index, e.g. ``at(x, [0, 0]).set(2)``.
+    The behaviour of update methods when the index is an array of integers is
+    undefined and will vary between backends; this is particularly true when the
+    index contains multiple occurrences of the same index, e.g.::
+
+        >>> import numpy as np
+        >>> import jax.numpy as jnp
+        >>> at(np.asarray([123]), np.asarray([0, 0])).add(1)
+        array([124])
+        >>> at(jnp.asarray([123]), jnp.asarray([0, 0])).add(1)
+        Array([125], dtype=int32)
 
     Note
     ----
-    `sparse <https://sparse.pydata.org/>`_ is not supported by update methods yet.
+    `sparse <https://sparse.pydata.org/>`_, as well as read-only arrays from libraries
+    not explicitly covered by ``array-api-compat``, are not supported by update
+    methods.
 
     See Also
     --------
     `jax.numpy.ndarray.at <https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndarray.at.html>`_
+    `Array API specification for indices <https://data-apis.org/array-api/latest/API_specification/indexing.html>`_
     """
 
     x: Array
