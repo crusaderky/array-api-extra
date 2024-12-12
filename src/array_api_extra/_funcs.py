@@ -670,27 +670,27 @@ class at:  # pylint: disable=invalid-name
       <https://data-apis.org/array-api/latest/API_specification/indexing.html>`_
     """
 
-    x: Array
-    idx: Index
-    __slots__: ClassVar[tuple[str, str]] = ("idx", "x")
+    _x: Array
+    _idx: Index
+    __slots__: ClassVar[tuple[str, str]] = ("_idx", "_x")
 
     def __init__(self, x: Array, idx: Index = _undef, /) -> None:
-        self.x = x
-        self.idx = idx
+        self._x = x
+        self._idx = idx
 
     def __getitem__(self, idx: Index, /) -> at:
         """Allow for the alternate syntax ``at(x)[start:stop:step]``,
         which looks prettier than ``at(x, slice(start, stop, step))``
         and feels more intuitive coming from the JAX documentation.
         """
-        if self.idx is not _undef:
+        if self._idx is not _undef:
             msg = "Index has already been set"
             raise ValueError(msg)
-        self.idx = idx
+        self._idx = idx
         return self
 
     def _check_args(self, /, copy: bool | None) -> None:
-        if self.idx is _undef:
+        if self._idx is _undef:
             msg = (
                 "Index has not been set.\n"
                 "Usage: either\n"
@@ -715,10 +715,10 @@ class at:  # pylint: disable=invalid-name
         this allows ensuring that the output is either a copy or a view
         """
         self._check_args(copy=copy)
-        x = self.x
+        x = self._x
 
         if copy is False:
-            if is_array_api_obj(self.idx):
+            if is_array_api_obj(self._idx):
                 # Boolean index. Note that the array API spec
                 # https://data-apis.org/array-api/latest/API_specification/indexing.html
                 # does not allow for list, tuple, and tuples of slices plus one or more
@@ -731,7 +731,7 @@ class at:  # pylint: disable=invalid-name
             # Prevent scalar indices together with copy=False.
             # Even if some backends may return a scalar view of the original, we chose to be
             # strict here beceause some other backends, such as numpy, definitely don't.
-            tup_idx = self.idx if isinstance(self.idx, tuple) else (self.idx,)
+            tup_idx = self._idx if isinstance(self._idx, tuple) else (self._idx,)
             if any(
                 i is not None and i is not Ellipsis and not isinstance(i, slice)
                 for i in tup_idx
@@ -746,15 +746,15 @@ class at:  # pylint: disable=invalid-name
 
         if is_jax_array(x):
             # Use JAX's at[] or other library that with the same duck-type API
-            return x.at[self.idx].get()
+            return x.at[self._idx].get()
 
         if xp is None:
             xp = array_namespace(x)
-        # Note: when self.idx is a boolean mask, numpy always returns a deep copy.
+        # Note: when idx is a boolean mask, numpy always returns a deep copy.
         # However, some backends may legitimately return a view when the mask can
         # be downgraded to a slice, e.g. a[[True, True, False]] -> a[:2].
         # Err on the side of caution and perform a double-copy in numpy.
-        return xp.asarray(x[self.idx], copy=copy)
+        return xp.asarray(x[self._idx], copy=copy)
 
     def _update_common(
         self,
@@ -771,7 +771,7 @@ class at:  # pylint: disable=invalid-name
         If the operation can be resolved by at[], (return value, None)
         Otherwise, (None, preprocessed x)
         """
-        x = self.x
+        x = self._x
         if copy is None:
             writeable = is_writeable_array(x)
             copy = not writeable
@@ -783,7 +783,7 @@ class at:  # pylint: disable=invalid-name
         if copy:
             if is_jax_array(x):
                 # Use JAX's at[] or other library that with the same duck-type API
-                func = getattr(x.at[self.idx], at_op)
+                func = getattr(x.at[self._idx], at_op)
                 return func(y) if y is not _undef else func(), None
             # Emulate at[] behaviour for non-JAX arrays
             # with a copy followed by an update
@@ -817,7 +817,7 @@ class at:  # pylint: disable=invalid-name
         if res is not None:
             return res
         assert x is not None
-        x[self.idx] = y
+        x[self._idx] = y
         return x
 
     def _iop(
@@ -845,7 +845,7 @@ class at:  # pylint: disable=invalid-name
         if res is not None:
             return res
         assert x is not None
-        x[self.idx] = elwise_op(x[self.idx], y)
+        x[self._idx] = elwise_op(x[self._idx], y)
         return x
 
     def add(
@@ -907,7 +907,7 @@ class at:  # pylint: disable=invalid-name
     ) -> Array:
         """Apply ``x[idx] = minimum(x[idx], y)`` and return the updated array"""
         if xp is None:
-            xp = array_namespace(self.x)
+            xp = array_namespace(self._x)
         y = xp.asarray(y)
         return self._iop("min", xp.minimum, y, copy=copy, xp=xp)
 
@@ -920,6 +920,6 @@ class at:  # pylint: disable=invalid-name
     ) -> Array:
         """Apply ``x[idx] = maximum(x[idx], y)`` and return the updated array"""
         if xp is None:
-            xp = array_namespace(self.x)
+            xp = array_namespace(self._x)
         y = xp.asarray(y)
         return self._iop("max", xp.maximum, y, copy=copy, xp=xp)
