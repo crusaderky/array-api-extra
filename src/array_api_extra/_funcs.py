@@ -669,7 +669,7 @@ class at:  # pylint: disable=invalid-name
 
     _x: Array
     _idx: Index
-    __slots__: ClassVar[tuple[str, str]] = ("_idx", "_x")
+    __slots__: ClassVar[tuple[str, ...]] = ("_idx", "_x")
 
     def __init__(self, x: Array, idx: Index = _undef, /) -> None:
         self._x = x
@@ -728,7 +728,7 @@ class at:  # pylint: disable=invalid-name
 
         if copy:
             if is_jax_array(x):
-                # Use JAX's at[] or other library that with the same duck-type API
+                # Use JAX's at[]
                 func = getattr(x.at[idx], at_op)
                 return func(y), None
             # Emulate at[] behaviour for non-JAX arrays
