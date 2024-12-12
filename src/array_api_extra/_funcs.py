@@ -664,8 +664,10 @@ class at:  # pylint: disable=invalid-name
 
     See Also
     --------
-    `jax.numpy.ndarray.at <https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndarray.at.html>`_
-    `Array API specification for indices <https://data-apis.org/array-api/latest/API_specification/indexing.html>`_
+    * `jax.numpy.ndarray.at
+      <https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.ndarray.at.html>`_
+    * `Array API standard for indexing
+      <https://data-apis.org/array-api/latest/API_specification/indexing.html>`_
     """
 
     x: Array
