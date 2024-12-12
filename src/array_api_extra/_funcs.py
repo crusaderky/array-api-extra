@@ -759,7 +759,7 @@ class at:  # pylint: disable=invalid-name
     def _update_common(
         self,
         at_op: str,
-        y: Array = _undef,
+        y: Array,
         /,
         copy: bool | None = True,
         xp: ModuleType | None = None,
@@ -783,8 +783,8 @@ class at:  # pylint: disable=invalid-name
         if copy:
             if is_jax_array(x):
                 # Use JAX's at[] or other library that with the same duck-type API
-                func = getattr(x.at[self._idx], at_op)
-                return func(y) if y is not _undef else func(), None
+                func = getattr(x.at[idx], at_op)
+                return func(y), None
             # Emulate at[] behaviour for non-JAX arrays
             # with a copy followed by an update
             if xp is None:
