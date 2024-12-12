@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from importlib import import_module
 from typing import TYPE_CHECKING, Final
 
@@ -9,6 +9,7 @@ import pytest
 from array_api_compat import (  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
     array_namespace,
     is_dask_array,
+    is_numpy_array,
     is_pydata_sparse_array,
     is_writeable_array,
 )
@@ -98,6 +99,71 @@ def test_update_ops(
         assert_array_equal(y, expect)
 
 
+@pytest.mark.parametrize("copy", [True, False, None])
+def test_get(array: Array, copy: bool | None):
+    expect_copy = copy
+
+    # dask is mutable, but __getitem__ never returns a view
+    if is_dask_array(array):
+        if copy is False:
+            with pytest.raises(ValueError, match="always returns a copy"):
+                at(array, slice(2)).get(copy=False)
+            return
+        expect_copy = True
+
+    # get(copy=False) on a read-only numpy array returns a read-only view
+    if is_numpy_array(array) and not copy and not array.flags.writeable:
+        out = at(array, slice(2)).get(copy=copy)
+        assert_array_equal(out, [10.0, 20.0])
+        assert out.base is array
+        assert not out.flags.writeable
+        return
+
+    with assert_copy(array, expect_copy):
+        y = at(array, slice(2)).get(copy=copy)
+        assert isinstance(y, type(array))
+        assert_array_equal(y, [10.0, 20.0])
+        # Let assert_copy test that y is a view or copy
+        with suppress(TypeError, ValueError):
+            y[:] = 40
+
+
+def test_get_scalar_nocopy(array: Array):
+    """get(copy=False) with a scalar index always raises, because some backends
+    such as numpy and sparse return a np.generic instead of a scalar view
+    """
+    with pytest.raises(ValueError, match="scalar"):
+        at(array)[0].get(copy=False)
+    with pytest.raises(ValueError, match="scalar"):
+        at(array)[(0,)].get(copy=False)
+    with pytest.raises(ValueError, match="scalar"):
+        at(array)[..., 0].get(copy=False)
+
+
+def test_get_bool_indices(array: Array):
+    """get() with a boolean array index always returns a copy"""
+    # sparse violates the array API as it doesn't support
+    # a boolean index that is another sparse array.
+    # dask with dask index has NaN size, which complicates testing.
+    if is_pydata_sparse_array(array) or is_dask_array(array):
+        xp = np
+    else:
+        xp = array_namespace(array)
+    idx = xp.asarray([True, False, True])
+
+    with pytest.raises(ValueError, match="copy"):
+        at(array, idx).get(copy=False)
+
+    assert_array_equal(at(array, idx).get(), [10.0, 30.0])
+
+    with assert_copy(array, True):
+        y = at(array, idx).get(copy=True)
+        assert_array_equal(y, [10.0, 30.0])
+        # Let assert_copy test that y is a view or copy
+        with suppress(TypeError, ValueError):
+            y[:] = 40
+
+
 def test_copy_invalid():
     a = np.asarray([1, 2, 3])
     with pytest.raises(ValueError, match="copy"):
@@ -106,6 +172,7 @@ def test_copy_invalid():
 
 def test_xp():
     a = np.asarray([1, 2, 3])
+    at(a, 0).get(xp=np)
     at(a, 0).set(4, xp=np)
     at(a, 0).add(4, xp=np)
     at(a, 0).subtract(4, xp=np)
