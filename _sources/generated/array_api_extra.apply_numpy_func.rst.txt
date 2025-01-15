@@ -1,6 +1,0 @@
-﻿array\_api\_extra.apply\_numpy\_func
-====================================
-
-.. currentmodule:: array_api_extra
-
-.. autofunction:: apply_numpy_func
