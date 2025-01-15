@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="array_api_extra.cov" href="array_api_extra.cov.html" /><link rel="prev" title="array_api_extra.at" href="array_api_extra.at.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="array_api_extra.at" href="array_api_extra.at.html" /><link rel="prev" title="API Reference" href="../api-reference.html" />
 
     <!-- Generated with Sphinx 8.1.3 and Furo 2024.08.06 -->
-        <title>array_api_extra.atleast_nd - array-api-extra 0.5.1.dev0 documentation</title>
+        <title>array_api_extra.apply_numpy_func - array-api-extra 0.5.1.dev0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -202,9 +202,9 @@
   <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../index.html">array-api-extra</a></li>
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../api-reference.html">API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="array_api_extra.apply_numpy_func.html">array_api_extra.apply_numpy_func</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">array_api_extra.apply_numpy_func</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.at.html">array_api_extra.at</a></li>
-<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">array_api_extra.atleast_nd</a></li>
+<li class="toctree-l2"><a class="reference internal" href="array_api_extra.atleast_nd.html">array_api_extra.atleast_nd</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.cov.html">array_api_extra.cov</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.create_diagonal.html">array_api_extra.create_diagonal</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.expand_dims.html">array_api_extra.expand_dims</a></li>
@@ -237,12 +237,12 @@
         </a>
         <div class="content-icon-container">
           <div class="view-this-page">
-  <a class="muted-link" href="https://github.com/data-apis/array-api-extra/blob/main/docs/generated/array_api_extra.atleast_nd.rst?plain=true" title="View this page">
+  <a class="muted-link" href="https://github.com/data-apis/array-api-extra/blob/main/docs/generated/array_api_extra.apply_numpy_func.rst?plain=true" title="View this page">
     <svg><use href="#svg-eye"></use></svg>
     <span class="visually-hidden">View this page</span>
   </a>
 </div><div class="edit-this-page">
-  <a class="muted-link" href="https://github.com/data-apis/array-api-extra/edit/main/docs/generated/array_api_extra.atleast_nd.rst" title="Edit this page">
+  <a class="muted-link" href="https://github.com/data-apis/array-api-extra/edit/main/docs/generated/array_api_extra.apply_numpy_func.rst" title="Edit this page">
     <svg><use href="#svg-pencil"></use></svg>
     <span class="visually-hidden">Edit this page</span>
   </a>
@@ -261,43 +261,77 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="array-api-extra-atleast-nd">
-<h1>array_api_extra.atleast_nd<a class="headerlink" href="#array-api-extra-atleast-nd" title="Link to this heading">¶</a></h1>
+          <section id="array-api-extra-apply-numpy-func">
+<h1>array_api_extra.apply_numpy_func<a class="headerlink" href="#array-api-extra-apply-numpy-func" title="Link to this heading">¶</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="array_api_extra.atleast_nd">
-<span class="sig-prename descclassname"><span class="pre">array_api_extra.</span></span><span class="sig-name descname"><span class="pre">atleast_nd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#array_api_extra.atleast_nd" title="Link to this definition">¶</a></dt>
-<dd><p>Recursively expand the dimension of an array to at least <cite>ndim</cite>.</p>
+<dt class="sig sig-object py" id="array_api_extra.apply_numpy_func">
+<span class="sig-prename descclassname"><span class="pre">array_api_extra.</span></span><span class="sig-name descname"><span class="pre">apply_numpy_func</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#array_api_extra.apply_numpy_func" title="Link to this definition">¶</a></dt>
+<dd><p>Apply a function that operates on NumPy arrays to Array API compliant arrays.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>array</em>) – Input array.</p></li>
-<li><p><strong>ndim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The minimum number of dimensions for the result.</p></li>
-<li><p><strong>xp</strong> (<em>array_namespace</em><em>, </em><em>optional</em>) – The standard-compatible namespace for <cite>x</cite>. Default: infer.</p></li>
+<li><p><strong>func</strong> (<em>callable</em>) – <p>The function to apply. It must accept one or more NumPy arrays or generics as
+positional arguments and return either a single NumPy array or generic, or a
+tuple or list thereof.</p>
+<p>It must be a pure function, i.e. without side effects, as depending on the
+backend it may be executed more than once.</p>
+</p></li>
+<li><p><strong>*args</strong> (<em>Array</em>) – One or more Array API compliant arrays. You need to be able to apply
+<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.asarray.html#numpy.asarray" title="(in NumPy v2.2)"><code class="xref py py-func docutils literal notranslate"><span class="pre">numpy.asarray()</span></code></a> to them to convert them to numpy; read notes below about
+specific backends.</p></li>
+<li><p><strong>shape</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><em>...</em><em>] </em><em>| </em><em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><em>...</em><em>]</em><em>]</em><em>, </em><em>optional</em>) – Output shape or sequence of output shapes, one for each output of <cite>func</cite>.
+Default: assume single output and broadcast shapes of the input arrays.</p></li>
+<li><p><strong>dtype</strong> (<em>DType</em><em> | </em><em>Sequence</em><em>[</em><em>DType</em><em>]</em><em>, </em><em>optional</em>) – Output dtype or sequence of output dtypes, one for each output of <cite>func</cite>.
+dtype(s) must belong to the same array namespace as the input arrays.
+Default: infer the result type(s) from the input arrays.</p></li>
+<li><p><strong>xp</strong> (<em>array_namespace</em><em>, </em><em>optional</em>) – The standard-compatible namespace for <cite>args</cite>. Default: infer.</p></li>
+<li><p><strong>**kwargs</strong> (<em>Any</em><em>, </em><em>optional</em>) – Additional keyword arguments to pass verbatim to <cite>func</cite>.
+Any array objects in them won’t be converted to NumPy.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>An array with <code class="docutils literal notranslate"><span class="pre">res.ndim</span></code> &gt;= <cite>ndim</cite>.
-If <code class="docutils literal notranslate"><span class="pre">x.ndim</span></code> &gt;= <cite>ndim</cite>, <cite>x</cite> is returned.
-If <code class="docutils literal notranslate"><span class="pre">x.ndim</span></code> &lt; <cite>ndim</cite>, <cite>x</cite> is expanded by prepending new axes
-until <code class="docutils literal notranslate"><span class="pre">res.ndim</span></code> equals <cite>ndim</cite>.</p>
+<dd class="field-even"><p>The result(s) of <cite>func</cite> applied to the input arrays, wrapped in the same
+array namespace as the inputs.
+If shape is omitted or a <cite>tuple[int, …]</cite>, this is a single array.
+Otherwise, it’s a tuple of arrays.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>array</p>
+<dd class="field-odd"><p>Array | <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[Array, …]</p>
 </dd>
 </dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">array_api_strict</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xp</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">array_api_extra</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xpx</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mi">1</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">xpx</span><span class="o">.</span><span class="n">atleast_nd</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ndim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">xp</span><span class="o">=</span><span class="n">xp</span><span class="p">)</span>
-<span class="go">Array([[[1]]], dtype=array_api_strict.int64)</span>
-</pre></div>
+<p class="rubric">Notes</p>
+<dl>
+<dt>JAX</dt><dd><p>This allows applying eager functions to jitted JAX arrays, which are lazy.
+The function won’t be applied until the JAX array is materialized.</p>
+<p>The <a class="reference external" href="https://jax.readthedocs.io/en/latest/transfer_guard.html" title="(in JAX)"><span>Transfer guard</span></a> may prevent arrays on a GPU device from being
+transferred back to CPU. This is treated as an implicit transfer.</p>
+</dd>
+<dt>PyTorch, CuPy</dt><dd><p>These backends raise by default if you attempt to convert arrays on a GPU device
+to NumPy.</p>
+</dd>
+<dt>Sparse</dt><dd><p>By default, sparse prevents implicit densification through
+<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.asarray.html#numpy.asarray" title="(in NumPy v2.2)"><code class="xref py py-func docutils literal notranslate"><span class="pre">numpy.asarray()</span></code></a>. <a class="reference external" href="https://sparse.pydata.org/en/stable/operations.html#package-configuration">This safety mechanism can be disabled</a>.</p>
+</dd>
+<dt>Dask</dt><dd><p>This allows applying eager functions to dask arrays.
+The dask graph won’t be computed.</p>
+<p><cite>apply_numpy_func</cite> doesn’t know if <cite>func</cite> reduces along any axes; also, shape
+changes are non-trivial in chunked Dask arrays. For these reasons, all inputs
+will be rechunked into a single chunk.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The whole operation needs to fit in memory all at once on a single worker.</p>
 </div>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">xp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
-<span class="gp">... </span>                 <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]]])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">xpx</span><span class="o">.</span><span class="n">atleast_nd</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ndim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">xp</span><span class="o">=</span><span class="n">xp</span><span class="p">)</span> <span class="ow">is</span> <span class="n">x</span>
-<span class="go">True</span>
-</pre></div>
+<p>The outputs will also be returned as a single chunk and you should consider
+rechunking them into smaller chunks afterwards.</p>
+<p>If you want to distribute the calculation across multiple workers, you
+should use <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_blocks.html#dask.array.map_blocks" title="(in Dask)"><code class="xref py py-func docutils literal notranslate"><span class="pre">dask.array.map_blocks()</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_overlap.html#dask.array.map_overlap" title="(in Dask)"><code class="xref py py-func docutils literal notranslate"><span class="pre">dask.array.map_overlap()</span></code></a>,
+<a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.blockwise.html#dask.array.blockwise" title="(in Dask)"><code class="xref py py-func docutils literal notranslate"><span class="pre">dask.array.blockwise()</span></code></a>, or a native Dask wrapper instead of
+<cite>apply_numpy_func</cite>.</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.transfer_guard.html#jax.transfer_guard" title="(in JAX)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax.transfer_guard</span></code></a>, <a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.pure_callback.html#jax.pure_callback" title="(in JAX)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax.pure_callback</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_blocks.html#dask.array.map_blocks" title="(in Dask)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dask.array.map_blocks</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_overlap.html#dask.array.map_overlap" title="(in Dask)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dask.array.map_overlap</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.blockwise.html#dask.array.blockwise" title="(in Dask)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dask.array.blockwise</span></code></a></p>
 </div>
 </dd></dl>
 
@@ -308,23 +342,23 @@ until <code class="docutils literal notranslate"><span class="pre">res.ndim</spa
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="array_api_extra.cov.html">
+          <a class="next-page" href="array_api_extra.at.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">array_api_extra.cov</div>
+                <div class="title">array_api_extra.at</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="array_api_extra.at.html">
+          <a class="prev-page" href="../api-reference.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">array_api_extra.at</div>
+                <div class="title">API Reference</div>
                 
               </div>
             </a>
@@ -365,8 +399,8 @@ until <code class="docutils literal notranslate"><span class="pre">res.ndim</spa
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">array_api_extra.atleast_nd</a><ul>
-<li><a class="reference internal" href="#array_api_extra.atleast_nd"><code class="docutils literal notranslate"><span class="pre">atleast_nd()</span></code></a></li>
+<li><a class="reference internal" href="#">array_api_extra.apply_numpy_func</a><ul>
+<li><a class="reference internal" href="#array_api_extra.apply_numpy_func"><code class="docutils literal notranslate"><span class="pre">apply_numpy_func()</span></code></a></li>
 </ul>
 </li>
 </ul>
