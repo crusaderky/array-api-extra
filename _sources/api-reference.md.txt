@@ -11,7 +11,9 @@
     cov
     create_diagonal
     expand_dims
+    isclose
     kron
+    lazy_apply
     nunique
     pad
     setdiff1d
