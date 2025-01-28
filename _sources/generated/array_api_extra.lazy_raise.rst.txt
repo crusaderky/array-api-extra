@@ -1,0 +1,6 @@
+﻿array\_api\_extra.lazy\_raise
+=============================
+
+.. currentmodule:: array_api_extra
+
+.. autofunction:: lazy_raise
