@@ -1,6 +1,0 @@
-﻿array\_api\_extra.lazy\_apply
-=============================
-
-.. currentmodule:: array_api_extra
-
-.. autofunction:: lazy_apply
