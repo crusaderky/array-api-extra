@@ -15,11 +15,12 @@ from ._utils import _compat, _helpers
 from ._utils._compat import (
     array_namespace,
     is_array_api_obj,
+    is_dask_array,
     is_dask_namespace,
     is_jax_array,
     is_jax_namespace,
 )
-from ._utils._helpers import asarrays, get_meta
+from ._utils._helpers import asarrays
 from ._utils._typing import Array, DType
 
 __all__ = [
@@ -138,35 +139,34 @@ def apply_where(  # type: ignore[no-any-explicit,misc] # numpydoc ignore=PR01,PR
 
     xp = array_namespace(cond, *args) if xp is None else xp
 
-    # Determine output dtype
-    metas = [get_meta(arg, xp=xp) for arg in args]
-    temp1 = f1(*metas)
-    if f2_ is None:
-        if xp.__array_api_version__ >= "2024.12" or is_array_api_obj(fill_value):
-            dtype = xp.result_type(temp1.dtype, fill_value)
-        else:
-            # TODO: remove this when all backends support Array API 2024.12
-            dtype = (xp.empty((), dtype=temp1.dtype) * fill_value).dtype
-    else:
-        temp2 = f2_(*metas)
-        dtype = xp.result_type(temp1, temp2)
-
-    if is_dask_namespace(xp):
-        # Dask does not support assignment by boolean mask
-        meta_xp = array_namespace(get_meta(cond), *metas)
-        # pass dtype to both da.map_blocks and _apply_where
-        return xp.map_blocks(
-            partial(_apply_where, dtype=dtype, xp=meta_xp),
-            cond,
-            f1,
-            f2_,
-            *args,
-            fill_value=fill_value,
-            dtype=dtype,
-            meta=metas[0],
+    if not is_dask_namespace(xp):
+        return _apply_where(
+            cond, f1, f2_, *args, fill_value=fill_value, dtype=None, xp=xp
         )
 
-    return _apply_where(cond, f1, f2_, *args, fill_value=fill_value, dtype=dtype, xp=xp)
+    # Dask-specific code from here onwards
+    metas = [arg._meta for arg in args]  # pylint: disable=protected-access
+    meta_xp = array_namespace(cond._meta, *metas)  # pylint: disable=protected-access
+    # Determine output dtype
+    if f2_ is not None:
+        dtype = meta_xp.result_type(f1(*metas), f2_(*metas))
+    elif is_dask_array(fill_value):
+        dtype = meta_xp.result_type(f1(*metas), cast(Array, fill_value)._meta)  # pylint: disable=protected-access
+    else:
+        # TODO remove asarrays once all backends support Array API 2024.12
+        dtype = meta_xp.result_type(*asarrays(f1(*metas), fill_value, xp=meta_xp))
+
+    return xp.map_blocks(
+        # pass dtype to both da.map_blocks and _apply_where
+        partial(_apply_where, dtype=dtype, xp=meta_xp),
+        cond,
+        f1,
+        f2_,
+        *args,
+        fill_value=fill_value,
+        dtype=dtype,
+        meta=metas[0],
+    )
 
 
 def _apply_where(  # type: ignore[no-any-explicit]  # numpydoc ignore=PR01,RT01
@@ -175,7 +175,7 @@ def _apply_where(  # type: ignore[no-any-explicit]  # numpydoc ignore=PR01,RT01
     f2: Callable[..., Array] | None,
     *args: Array,
     fill_value: Array | int | float | complex | bool | None,
-    dtype: DType,
+    dtype: DType | None,
     xp: ModuleType,
 ) -> Array:
     """Helper of `apply_where`. On Dask, this runs on a single chunk."""
@@ -189,10 +189,15 @@ def _apply_where(  # type: ignore[no-any-explicit]  # numpydoc ignore=PR01,RT01
     temp1 = f1(*(arr[cond] for arr in args))
 
     if f2 is None:
+        if dtype is None:
+            # TODO remove asarrays once all backends support Array API 2024.12
+            dtype = xp.result_type(*asarrays(temp1, fill_value, xp=xp))
         out = xp.full(cond.shape, fill_value=fill_value, dtype=dtype, device=device)
     else:
         ncond = ~cond
         temp2 = f2(*(arr[ncond] for arr in args))
+        if dtype is None:
+            dtype = xp.result_type(temp1, temp2)
         out = xp.empty(cond.shape, dtype=dtype, device=device)
         out = at(out, ncond).set(temp2)
 
