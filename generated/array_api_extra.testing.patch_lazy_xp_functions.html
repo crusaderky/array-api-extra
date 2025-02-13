@@ -204,6 +204,7 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../api-reference.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.at.html">array_api_extra.at</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.atleast_nd.html">array_api_extra.atleast_nd</a></li>
+<li class="toctree-l2"><a class="reference internal" href="array_api_extra.broadcast_shapes.html">array_api_extra.broadcast_shapes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.cov.html">array_api_extra.cov</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.create_diagonal.html">array_api_extra.create_diagonal</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.expand_dims.html">array_api_extra.expand_dims</a></li>
@@ -274,7 +275,7 @@
 <dd><p>Test lazy execution of functions tagged with <a class="reference internal" href="array_api_extra.testing.lazy_xp_function.html#array_api_extra.testing.lazy_xp_function" title="array_api_extra.testing.lazy_xp_function"><code class="xref py py-func docutils literal notranslate"><span class="pre">lazy_xp_function()</span></code></a>.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">xp==jax.numpy</span></code>, search for all functions which have been tagged with
 <a class="reference internal" href="array_api_extra.testing.lazy_xp_function.html#array_api_extra.testing.lazy_xp_function" title="array_api_extra.testing.lazy_xp_function"><code class="xref py py-func docutils literal notranslate"><span class="pre">lazy_xp_function()</span></code></a> in the globals of the module that defines the current test
-and wrap them with <a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.jit.html#jax.jit" title="(in JAX)"><code class="xref py py-func docutils literal notranslate"><span class="pre">jax.jit()</span></code></a>. Unwrap them at the end of the test.</p>
+and wrap them with <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.jit.html#jax.jit" title="(in JAX)"><code class="xref py py-func docutils literal notranslate"><span class="pre">jax.jit()</span></code></a>. Unwrap them at the end of the test.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">xp==dask.array</span></code>, wrap the functions with a decorator that disables
 <code class="docutils literal notranslate"><span class="pre">compute()</span></code> and <code class="docutils literal notranslate"><span class="pre">persist()</span></code>.</p>
 <p>This function should be typically called by your library’s <cite>xp</cite> fixture that runs
