@@ -63,7 +63,7 @@ def apply_where(  # type: ignore[no-any-explicit,no-any-decorated] # numpydoc ig
 def apply_where(  # type: ignore[no-any-explicit,misc] # numpydoc ignore=PR01,PR02
     cond: Array,
     f1: Callable[..., Array],
-    f2: Callable[..., Array] | Array,
+    f2: Callable[..., Array] | Array,  # optional positional argument
     /,
     *args: Array,
     fill_value: Array | int | float | complex | bool | None = None,
@@ -119,37 +119,36 @@ def apply_where(  # type: ignore[no-any-explicit,misc] # numpydoc ignore=PR01,PR
     mutually_exc_msg = "Exactly one of `fill_value` or `f2` must be given."
     if is_array_api_obj(f2):
         args = (cast(Array, f2), *args)
-        if fill_value is not None:
-            raise TypeError(mutually_exc_msg)
-        f2_: Callable[..., Array] | None = None  # type: ignore[no-any-explicit]
-    else:
-        if not callable(f2):
-            msg = "Third parameter must be either an Array or callable."
-            raise ValueError(msg)
-        f2_ = cast(Callable[..., Array], f2)  # type: ignore[no-any-explicit]
+        f2 = None
         if fill_value is None:
             raise TypeError(mutually_exc_msg)
         if getattr(fill_value, "ndim", 0) != 0:
             msg = "`fill_value` must be a scalar."
             raise ValueError(msg)
-    del f2
+    elif callable(f2):
+        if fill_value is not None:
+            raise TypeError(mutually_exc_msg)
+    else:
+        msg = "Third parameter must be either an Array or callable."
+        raise ValueError(msg)
     if not args:
         msg = "Must give at least one input array."
         raise TypeError(msg)
+    # End argument parsing
 
     xp = array_namespace(cond, *args) if xp is None else xp
 
     if not is_dask_namespace(xp):
         return _apply_where(
-            cond, f1, f2_, *args, fill_value=fill_value, dtype=None, xp=xp
+            cond, f1, f2, *args, fill_value=fill_value, dtype=None, xp=xp
         )
 
     # Dask-specific code from here onwards
     metas = [arg._meta for arg in args]  # pylint: disable=protected-access
     meta_xp = array_namespace(cond._meta, *metas)  # pylint: disable=protected-access
     # Determine output dtype
-    if f2_ is not None:
-        dtype = meta_xp.result_type(f1(*metas), f2_(*metas))
+    if f2 is not None:
+        dtype = meta_xp.result_type(f1(*metas), f2(*metas))
     elif is_dask_array(fill_value):
         dtype = meta_xp.result_type(f1(*metas), cast(Array, fill_value)._meta)  # pylint: disable=protected-access
     else:
@@ -161,7 +160,7 @@ def apply_where(  # type: ignore[no-any-explicit,misc] # numpydoc ignore=PR01,PR
         partial(_apply_where, dtype=dtype, xp=meta_xp),
         cond,
         f1,
-        f2_,
+        f2,
         *args,
         fill_value=fill_value,
         dtype=dtype,
