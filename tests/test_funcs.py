@@ -229,14 +229,17 @@ class TestApplyWhere:
         cond_shape, *shapes = input_shapes
 
         # cupy/cupy#8382
-        elements = {"allow_subnormal": False} if library is Backend.CUPY else None
+        # https://github.com/jax-ml/jax/issues/26658
+        elements = {"allow_subnormal": library not in (Backend.CUPY, Backend.JAX)}
 
         fill_value = xp.asarray(
             data.draw(npst.arrays(dtype=dtype, shape=(), elements=elements))
         )
         float_fill_value = float(fill_value)
         arrays = tuple(
-            xp.asarray(data.draw(npst.arrays(dtype=dtype, shape=shape)))
+            xp.asarray(
+                data.draw(npst.arrays(dtype=dtype, shape=shape, elements=elements))
+            )
             for shape in shapes
         )
 
@@ -258,12 +261,9 @@ class TestApplyWhere:
         # TODO remove asarrays once all backends support Array API 2024.12
         ref3 = xp.where(cond, *asarrays(f1(*arrays), float_fill_value, xp=xp))
 
-        # https://github.com/jax-ml/jax/issues/26658
-        atol = 1e-300 if library is Backend.JAX else 0
-
-        xp_assert_close(res1, ref1, atol=atol, rtol=2e-16)
-        xp_assert_close(res2, ref2, atol=atol, rtol=2e-16)
-        xp_assert_close(res3, ref3, atol=atol, rtol=2e-16)
+        xp_assert_close(res1, ref1, rtol=2e-16)
+        xp_assert_equal(res2, ref2)
+        xp_assert_equal(res3, ref3)
 
 
 @pytest.mark.xfail_xp_backend(Backend.SPARSE, reason="no expand_dims")
