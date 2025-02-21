@@ -258,9 +258,12 @@ class TestApplyWhere:
         # TODO remove asarrays once all backends support Array API 2024.12
         ref3 = xp.where(cond, *asarrays(f1(*arrays), float_fill_value, xp=xp))
 
-        xp_assert_close(res1, ref1, rtol=2e-16)
-        xp_assert_equal(res2, ref2)
-        xp_assert_equal(res3, ref3)
+        # https://github.com/jax-ml/jax/issues/26658
+        atol = 1e-300 if library is Backend.JAX else 0
+
+        xp_assert_close(res1, ref1, atol=atol, rtol=2e-16)
+        xp_assert_close(res2, ref2, atol=atol, rtol=2e-16)
+        xp_assert_close(res3, ref3, atol=atol, rtol=2e-16)
 
 
 @pytest.mark.xfail_xp_backend(Backend.SPARSE, reason="no expand_dims")
