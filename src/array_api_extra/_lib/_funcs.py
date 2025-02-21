@@ -90,7 +90,8 @@ def apply_where(  # type: ignore[no-any-explicit] # numpydoc ignore=PR01,PR02
         Argument(s) to `f1` (and `f2`). Must be broadcastable with `cond`.
     fill_value : Array or scalar, optional
         If provided, value with which to fill output array where `cond` is False.
-        It does not need to be scalar.
+        It does not need to be scalar; it needs however to be broadcastable with
+        `cond` and `args`.
         Mutually exclusive with `f2`. You must provide one or the other.
     xp : array_namespace, optional
         The standard-compatible namespace for `cond` and `args`. Default: infer.
@@ -147,7 +148,8 @@ def apply_where(  # type: ignore[no-any-explicit] # numpydoc ignore=PR01,PR02
         cond, *args = xp.broadcast_arrays(cond, *args)
 
     if is_dask_namespace(xp):
-        meta_xp = meta_namespace(cond, fill_value, *args, xp=xp)
+        meta_xp = meta_namespace(cond, *args, fill_value, xp=xp)
+        # map_blocks doesn't descend into tuples of Arrays
         return xp.map_blocks(_apply_where, cond, f1, f2, fill_value, *args, xp=meta_xp)
     return _apply_where(cond, f1, f2, fill_value, *args, xp=xp)
 
@@ -166,21 +168,20 @@ def _apply_where(  # type: ignore[no-any-explicit]  # numpydoc ignore=PR01,RT01
         # jax.jit does not support assignment by boolean mask
         return xp.where(cond, f1(*args), f2(*args) if f2 is not None else fill_value)
 
-    device = _compat.device(cond)
     temp1 = f1(*(arr[cond] for arr in args))
 
     if f2 is None:
         # TODO remove asarrays once all backends support Array API 2024.12
         dtype = xp.result_type(*asarrays(temp1, fill_value, xp=xp))
         if getattr(fill_value, "ndim", 0):
-            fill_value = xp.astype(fill_value, dtype)
-            return at(fill_value, cond).set(temp1, copy=True)
-        out = xp.full(cond.shape, fill_value=fill_value, dtype=dtype, device=device)
+            out = xp.astype(fill_value, dtype, copy=True)
+        else:
+            out = xp.full_like(cond, dtype=dtype, fill_value=fill_value)
     else:
         ncond = ~cond
         temp2 = f2(*(arr[ncond] for arr in args))
         dtype = xp.result_type(temp1, temp2)
-        out = xp.empty(cond.shape, dtype=dtype, device=device)
+        out = xp.empty_like(cond, dtype=dtype)
         out = at(out, ncond).set(temp2)
 
     return at(out, cond).set(temp1)
