@@ -38,9 +38,9 @@ __all__ = [
 @overload
 def apply_where(  # type: ignore[no-any-explicit,no-any-decorated] # numpydoc ignore=GL08
     cond: Array,
+    args: Array | tuple[Array, ...],
     f1: Callable[..., Array],
     f2: Callable[..., Array],
-    args: Array | tuple[Array, ...],
     /,
     *,
     xp: ModuleType | None = None,
@@ -50,8 +50,8 @@ def apply_where(  # type: ignore[no-any-explicit,no-any-decorated] # numpydoc ig
 @overload
 def apply_where(  # type: ignore[no-any-explicit,no-any-decorated] # numpydoc ignore=GL08
     cond: Array,
-    f1: Callable[..., Array],
     args: Array | tuple[Array, ...],
+    f1: Callable[..., Array],
     /,
     *,
     fill_value: Array | int | float | complex | bool,
@@ -61,9 +61,9 @@ def apply_where(  # type: ignore[no-any-explicit,no-any-decorated] # numpydoc ig
 
 def apply_where(  # type: ignore[no-any-explicit] # numpydoc ignore=PR01,PR02
     cond: Array,
+    args: Array | tuple[Array, ...],
     f1: Callable[..., Array],
-    f2: Callable[..., Array] | Array | tuple[Array],  # optional positional argument
-    args: Array | tuple[Array, ...] | None = None,
+    f2: Callable[..., Array] | None = None,
     /,
     *,
     fill_value: Array | int | float | complex | bool | None = None,
@@ -79,6 +79,8 @@ def apply_where(  # type: ignore[no-any-explicit] # numpydoc ignore=PR01,PR02
     ----------
     cond : array
         The condition, expressed as a boolean array.
+    args : Array or tuple of Arrays
+        Argument(s) to `f1` (and `f2`). Must be broadcastable with `cond`.
     f1 : callable
         Elementwise function of `args`, returning a single array.
         Where `cond` is True, output will be ``f1(arg0[cond], arg1[cond], ...)``.
@@ -86,8 +88,6 @@ def apply_where(  # type: ignore[no-any-explicit] # numpydoc ignore=PR01,PR02
         Elementwise function of `args`, returning a single array.
         Where `cond` is False, output will be ``f2(arg0[cond], arg1[cond], ...)``.
         Mutually exclusive with `fill_value`.
-    args : Array or tuple of Arrays
-        Argument(s) to `f1` (and `f2`). Must be broadcastable with `cond`.
     fill_value : Array or scalar, optional
         If provided, value with which to fill output array where `cond` is False.
         It does not need to be scalar; it needs however to be broadcastable with
@@ -119,25 +119,15 @@ def apply_where(  # type: ignore[no-any-explicit] # numpydoc ignore=PR01,PR02
     >>> b = xp.asarray([0, 2, 2])
     >>> def f(a, b):
     ...     return a // b
-    >>> apply_where(b != 0, f, (a, b), fill_value=xp.nan)
+    >>> apply_where(b != 0, (a, b), f, fill_value=xp.nan)
     array([ nan,  2., 1.])
     """
     # Parse and normalize arguments
-    mutually_exc_msg = "Exactly one of `fill_value` or `f2` must be given."
-    if args is None:
-        f2, args = None, f2
-        if fill_value is None:
-            raise TypeError(mutually_exc_msg)
-    else:
-        if not callable(f2):
-            msg = "Third parameter must be a callable, Array, or tuple of Arrays."
-            raise TypeError(msg)
-        if fill_value is not None:
-            raise TypeError(mutually_exc_msg)
-
+    if (f2 is None) == (fill_value is None):
+        msg = "Exactly one of `fill_value` or `f2` must be given."
+        raise TypeError(msg)
     if not isinstance(args, tuple):
         args = (args,)
-    f2 = cast(Callable[..., Array] | None, f2)  # type: ignore[no-any-explicit]
     args = cast(tuple[Array, ...], args)
 
     xp = array_namespace(cond, *args) if xp is None else xp
@@ -547,10 +537,10 @@ def isclose(
         mxp = meta_namespace(a, b, xp=xp)
         out = apply_where(
             xp.isinf(a) | xp.isinf(b),
+            (a, b),
             lambda a, b: mxp.isinf(a) & mxp.isinf(b) & (mxp.sign(a) == mxp.sign(b)),  # pyright: ignore[reportUnknownArgumentType]
             # Note: inf <= inf is True!
             lambda a, b: mxp.abs(a - b) <= (atol + rtol * mxp.abs(b)),  # pyright: ignore[reportUnknownArgumentType]
-            (a, b),
             xp=xp,
         )
         if equal_nan:

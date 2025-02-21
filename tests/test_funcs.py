@@ -1,7 +1,6 @@
 import contextlib
 import math
 import warnings
-from collections.abc import Callable
 from types import ModuleType
 
 import hypothesis
@@ -36,6 +35,7 @@ from array_api_extra.testing import lazy_xp_function
 # some xp backends are untyped
 # mypy: disable-error-code=no-untyped-def
 
+lazy_xp_function(apply_where, static_argnums=(2, 3), static_argnames="xp")
 lazy_xp_function(atleast_nd, static_argnames=("ndim", "xp"))
 lazy_xp_function(cov, static_argnames="xp")
 # FIXME .device attribute https://github.com/data-apis/array-api-compat/pull/238
@@ -48,29 +48,6 @@ lazy_xp_function(pad, static_argnames=("pad_width", "mode", "constant_values", "
 lazy_xp_function(setdiff1d, jax_jit=False, static_argnames=("assume_unique", "xp"))
 # FIXME .device attribute https://github.com/data-apis/array-api-compat/pull/238
 lazy_xp_function(sinc, jax_jit=False, static_argnames="xp")
-
-
-def apply_where_jit(  # type: ignore[no-any-explicit]
-    cond: Array,
-    f1: Callable[..., Array],
-    f2: Callable[..., Array] | None,
-    args: Array | tuple[Array, ...],
-    fill_value: Array | int | float | complex | bool | None = None,
-    xp: ModuleType | None = None,
-) -> Array:
-    """
-    Work around jax.jit's inability to handle variadic positional arguments.
-
-    This is a lazy_xp_function artefact for when jax.jit is applied directly
-    to apply_where, which would not happen in real life.
-    """
-    if f2 is None:
-        return apply_where(cond, f1, args, fill_value=fill_value, xp=xp)
-    assert fill_value is None
-    return apply_where(cond, f1, f2, args, xp=xp)
-
-
-lazy_xp_function(apply_where_jit, static_argnames=("f1", "f2", "xp"))
 
 
 class TestApplyWhere:
@@ -86,7 +63,7 @@ class TestApplyWhere:
     def test_f1_f2(self, xp: ModuleType):
         x = xp.asarray([1, 2, 3, 4])
         cond = x % 2 == 0
-        actual = apply_where_jit(cond, self.f1, self.f2, x)
+        actual = apply_where(cond, x, self.f1, self.f2)
         expect = xp.where(cond, self.f1(x), self.f2(x))
         xp_assert_equal(actual, expect)
 
@@ -94,11 +71,11 @@ class TestApplyWhere:
     def test_fill_value(self, xp: ModuleType):
         x = xp.asarray([1, 2, 3, 4])
         cond = x % 2 == 0
-        actual = apply_where_jit(x % 2 == 0, self.f1, None, x, fill_value=0)
+        actual = apply_where(x % 2 == 0, x, self.f1, fill_value=0)
         expect = xp.where(cond, self.f1(x), xp.asarray(0))
         xp_assert_equal(actual, expect)
 
-        actual = apply_where_jit(x % 2 == 0, self.f1, None, x, fill_value=xp.asarray(0))
+        actual = apply_where(x % 2 == 0, x, self.f1, fill_value=xp.asarray(0))
         xp_assert_equal(actual, expect)
 
     @pytest.mark.xfail_xp_backend(Backend.SPARSE, reason="read-only without .at")
@@ -106,7 +83,7 @@ class TestApplyWhere:
         x = xp.asarray([1, 2, 3, 4])
         y = xp.asarray([10, 20, 30, 40])
         cond = x % 2 == 0
-        actual = apply_where_jit(cond, self.f1, self.f2, (x, y))
+        actual = apply_where(cond, (x, y), self.f1, self.f2)
         expect = xp.where(cond, self.f1(x, y), self.f2(x, y))
         xp_assert_equal(actual, expect)
 
@@ -116,21 +93,21 @@ class TestApplyWhere:
         y = xp.asarray([[10], [20], [30]])
         cond = xp.broadcast_to(xp.asarray(True), (4, 1, 1))
 
-        actual = apply_where_jit(cond, self.f1, self.f2, (x, y))
+        actual = apply_where(cond, (x, y), self.f1, self.f2)
         expect = xp.where(cond, self.f1(x, y), self.f2(x, y))
         xp_assert_equal(actual, expect)
 
-        actual = apply_where_jit(
+        actual = apply_where(
             cond,
+            (x, y),
             lambda x, _: x,  # pyright: ignore[reportUnknownArgumentType]
             lambda _, y: y,  # pyright: ignore[reportUnknownArgumentType]
-            (x, y),
         )
         expect = xp.where(cond, x, y)
         xp_assert_equal(actual, expect)
 
         # Shaped fill_value
-        actual = apply_where_jit(cond, self.f1, None, x, fill_value=y)
+        actual = apply_where(cond, x, self.f1, fill_value=y)
         expect = xp.where(cond, self.f1(x), y)
         xp_assert_equal(actual, expect)
 
@@ -141,15 +118,15 @@ class TestApplyWhere:
         cond = x % 2 == 0
 
         mxp = np if library is Backend.DASK else xp
-        actual = apply_where_jit(
+        actual = apply_where(
             cond,
+            (x, y),
             self.f1,
             lambda x, y: mxp.astype(x - y, xp.int64),  # pyright: ignore[reportUnknownArgumentType]
-            (x, y),
         )
         assert actual.dtype == xp.int64
 
-        actual = apply_where_jit(cond, self.f1, None, y, fill_value=5)
+        actual = apply_where(cond, y, self.f1, fill_value=5)
         assert actual.dtype == xp.int16
 
     @pytest.mark.xfail_xp_backend(Backend.SPARSE, reason="read-only without .at")
@@ -168,14 +145,14 @@ class TestApplyWhere:
         cond = x % 2 == 0
         fill_value = xp.asarray(fill_value_raw, dtype=getattr(xp, fill_value_dtype))
 
-        actual = apply_where_jit(cond, self.f1, None, x, fill_value=fill_value)
+        actual = apply_where(cond, x, self.f1, fill_value=fill_value)
         assert actual.dtype == getattr(xp, expect_dtype)
 
     @pytest.mark.xfail_xp_backend(Backend.SPARSE, reason="read-only without .at")
     def test_dont_overwrite_fill_value(self, xp: ModuleType):
         x = xp.asarray([1, 2])
         fill_value = xp.asarray([100, 200])
-        actual = apply_where_jit(x % 2 == 0, self.f1, None, x, fill_value=fill_value)
+        actual = apply_where(x % 2 == 0, x, self.f1, fill_value=fill_value)
         xp_assert_equal(actual, xp.asarray([100, 12]))
         xp_assert_equal(fill_value, xp.asarray([100, 200]))
 
@@ -184,11 +161,11 @@ class TestApplyWhere:
         x = xp.asarray([1.0, 2.0, 0.0])
         y = xp.asarray([0.0, 3.0, 4.0])
         # On NumPy, division by zero will trigger warnings
-        actual = apply_where_jit(
+        actual = apply_where(
             x == 0,
+            (x, y),
             lambda x, y: x / y,  # pyright: ignore[reportUnknownArgumentType]
             lambda x, y: y / x,  # pyright: ignore[reportUnknownArgumentType]
-            (x, y),
         )
         xp_assert_equal(actual, xp.asarray([0.0, 1.5, 0.0]))
 
@@ -197,29 +174,28 @@ class TestApplyWhere:
         cond = x % 2 == 0
         # Neither f2 nor fill_value
         with pytest.raises(TypeError, match="Exactly one of"):
-            apply_where(cond, self.f1, x)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue]
+            apply_where(cond, x, self.f1)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue]
         # Both f2 and fill_value
         with pytest.raises(TypeError, match="Exactly one of"):
-            apply_where(cond, self.f1, self.f2, x, fill_value=0)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue]
-        # Multiple args; forgot to wrap them in a tuple
-        with pytest.raises(TypeError, match="takes from 3 to 4 positional arguments"):
-            apply_where(cond, self.f1, self.f2, x, x)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue]
-        with pytest.raises(TypeError, match="callable"):
-            apply_where(cond, self.f1, x, x, fill_value=0)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue]
+            apply_where(cond, x, self.f1, self.f2, fill_value=0)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue]
 
     @pytest.mark.skip_xp_backend(Backend.NUMPY_READONLY, reason="xp=xp")
     @pytest.mark.xfail_xp_backend(Backend.SPARSE, reason="read-only without .at")
     def test_xp(self, xp: ModuleType):
         x = xp.asarray([1, 2, 3, 4])
         cond = x % 2 == 0
-        actual = apply_where_jit(cond, self.f1, self.f2, x, xp=xp)
+        actual = apply_where(cond, x, self.f1, self.f2, xp=xp)
         expect = xp.where(cond, self.f1(x), self.f2(x))
         xp_assert_equal(actual, expect)
 
     @pytest.mark.xfail_xp_backend(Backend.SPARSE, reason="read-only without .at")
     def test_device(self, xp: ModuleType, device: Device):
         x = xp.asarray([1, 2, 3, 4], device=device)
-        y = apply_where_jit(x % 2 == 0, self.f1, self.f2, x)
+        y = apply_where(x % 2 == 0, x, self.f1, self.f2)
+        assert get_device(y) == device
+        y = apply_where(x % 2 == 0, x, self.f1, fill_value=0)
+        assert get_device(y) == device
+        y = apply_where(x % 2 == 0, x, self.f1, fill_value=x)
         assert get_device(y) == device
 
     # skip instead of xfail in order not to waste time
@@ -273,10 +249,9 @@ class TestApplyWhere:
         rng = np.random.default_rng(rng_seed)
         cond = xp.asarray(rng.random(size=cond_shape) > p)
 
-        # Use apply_where instead of apply_where_jit to speed the test up
-        res1 = apply_where(cond, f1, arrays, fill_value=fill_value)
-        res2 = apply_where(cond, f1, f2, arrays)
-        res3 = apply_where(cond, f1, arrays, fill_value=float_fill_value)
+        res1 = apply_where(cond, arrays, f1, fill_value=fill_value)
+        res2 = apply_where(cond, arrays, f1, f2)
+        res3 = apply_where(cond, arrays, f1, fill_value=float_fill_value)
 
         ref1 = xp.where(cond, f1(*arrays), fill_value)
         ref2 = xp.where(cond, f1(*arrays), f2(*arrays))

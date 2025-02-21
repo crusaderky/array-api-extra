@@ -299,7 +299,7 @@ class at:  # pylint: disable=invalid-name  # numpydoc ignore=PR02
                 if out_of_place_op:
                     # suppress inf warnings on Dask
                     out = apply_where(
-                        idx, out_of_place_op, (x, y_xp), fill_value=x, xp=xp
+                        idx, (x, y_xp), out_of_place_op, fill_value=x, xp=xp
                     )
                     # Undo int->float promotion on JAX after _AtOp.DIVIDE
                     out = xp.astype(out, x.dtype, copy=False)
