@@ -199,7 +199,7 @@ class TestApplyWhere:
     # skip instead of xfail in order not to waste time
     @pytest.mark.skip_xp_backend(Backend.SPARSE, reason="read-only without .at")
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")  # overflows, etc.
-    @hypothesis.settings(
+    @hypothesis.settings(  # pyright: ignore[reportArgumentType]
         # The xp and library fixtures are not regenerated between hypothesis iterations
         suppress_health_check=[hypothesis.HealthCheck.function_scoped_fixture],
         # JAX can take a long time to initialize on the first call
