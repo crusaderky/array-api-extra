@@ -12,6 +12,7 @@ from ._utils._compat import (
     array_namespace,
     is_dask_array,
     is_jax_array,
+    is_pydata_sparse_array,
     is_writeable_array,
 )
 from ._utils._helpers import meta_namespace
@@ -290,11 +291,12 @@ class at:  # pylint: disable=invalid-name  # numpydoc ignore=PR02
         writeable = None if copy else is_writeable_array(x)
 
         # JAX inside jax.jit doesn't support in-place updates with boolean
-        # masks; Dask exclusively supports __setitem__ but not iops.
+        # masks; Dask exclusively supports __setitem__ but not iops;
+        # Sparse doesn't support in-place updates full-stop.
         # We can handle the common special case of 0-dimensional y
         # with where(idx, y, x) instead.
         if (
-            (is_dask_array(idx) or is_jax_array(idx))
+            (is_dask_array(idx) or is_jax_array(idx) or is_pydata_sparse_array(idx))
             and idx.dtype == xp.bool
             and idx.shape == x.shape
         ):
@@ -340,7 +342,7 @@ class at:  # pylint: disable=invalid-name  # numpydoc ignore=PR02
         if writeable is None:
             writeable = is_writeable_array(x)
         if not writeable:
-            # sparse crashes here
+            # sparse with idx other than bool mask or shaped y crashes here
             msg = f"Can't update read-only array {x}"
             raise ValueError(msg)
 
