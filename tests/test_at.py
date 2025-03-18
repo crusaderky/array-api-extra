@@ -16,11 +16,9 @@ from array_api_extra._lib._utils._compat import array_namespace, is_writeable_ar
 from array_api_extra._lib._utils._typing import Array, SetIndex
 from array_api_extra.testing import lazy_xp_function
 
-pytestmark = [
-    pytest.mark.skip_xp_backend(
-        Backend.SPARSE, reason="read-only backend without .at support"
-    )
-]
+sparse_xfail = pytest.mark.skip_xp_backend(
+    Backend.SPARSE, reason="read-only backend without .at support"
+)
 
 
 def at_op(
@@ -100,16 +98,28 @@ def assert_copy(
         (_AtOp.MULTIPLY, 2.0, [10.0, 40.0, 60.0]),
         (_AtOp.DIVIDE, 2.0, [10.0, 10.0, 15.0]),
         (_AtOp.POWER, 2.0, [10.0, 400.0, 900.0]),
-        (_AtOp.MIN, 25.0, [10.0, 20.0, 25.0]),
-        (_AtOp.MAX, 25.0, [10.0, 25.0, 30.0]),
+        pytest.param(
+            _AtOp.MIN,
+            25.0,
+            [10.0, 20.0, 25.0],
+            # test passes when copy=False
+            marks=pytest.mark.skip(reason="no minimum"),
+        ),
+        pytest.param(
+            _AtOp.MAX,
+            25.0,
+            [10.0, 25.0, 30.0],
+            # test passes when copy=False
+            marks=pytest.mark.skip(reason="no maximum"),
+        ),
     ],
 )
 @pytest.mark.parametrize(
     ("bool_mask", "x_ndim", "y_ndim"),
     [
-        (False, 1, 0),
-        (False, 1, 1),
-        (True, 1, 0),  # Uses xp.where(idx, y, x) on JAX and Dask
+        pytest.param(False, 1, 0, marks=sparse_xfail),
+        pytest.param(False, 1, 1, marks=sparse_xfail),
+        (True, 1, 0),  # Uses xp.where(idx, y, x) on JAX, Dask, and Sparse
         pytest.param(
             *(True, 1, 1),
             marks=(
@@ -119,9 +129,12 @@ def assert_copy(
                 pytest.mark.xfail_xp_backend(
                     Backend.DASK, reason="bool mask update with shaped rhs"
                 ),
+                pytest.mark.skip_xp_backend(  # test passes when copy=False
+                    Backend.SPARSE, reason="bool mask update with shaped rhs"
+                ),
             ),
         ),
-        (False, 0, 0),
+        pytest.param(False, 0, 0, marks=sparse_xfail),
         (True, 0, 0),
     ],
 )
@@ -158,8 +171,9 @@ def test_update_ops(
         xp_assert_equal(z, xp.asarray(expect))
 
 
+@sparse_xfail
 @pytest.mark.parametrize("op", list(_AtOp))
-def test_copy_default(xp: ModuleType, library: Backend, op: _AtOp):
+def test_copy_default(xp: ModuleType, op: _AtOp):
     """
     Test that the default copy behaviour is False for writeable arrays
     and True for read-only ones.
@@ -169,6 +183,12 @@ def test_copy_default(xp: ModuleType, library: Backend, op: _AtOp):
     meth = cast(Callable[..., Array], getattr(at(x)[:2], op.value))  # type: ignore[explicit-any]
     with assert_copy(x, None, expect_copy):
         _ = meth(2.0)
+
+
+@pytest.mark.parametrize("op", list(_AtOp))
+def test_copy_default_bool_mask(xp: ModuleType, library: Backend, op: _AtOp):
+    if op in (_AtOp.MIN, _AtOp.MAX) and library is Backend.SPARSE:
+        pytest.xfail("no minimum/maximum")
 
     x = xp.asarray([1.0, 10.0, 20.0])
     # Dask's default copy value is True for bool masks,
@@ -215,7 +235,7 @@ def test_alternate_index_syntax():
 
 
 @pytest.mark.parametrize("copy", [True, None])
-@pytest.mark.parametrize("bool_mask", [False, True])
+@pytest.mark.parametrize("bool_mask", [pytest.param(False, marks=sparse_xfail), True])
 @pytest.mark.parametrize("op", list(_AtOp))
 def test_incompatible_dtype(
     xp: ModuleType,
@@ -255,9 +275,19 @@ def test_incompatible_dtype(
     elif library is Backend.DASK:
         z = at_op(x, idx, op, 1.1, copy=copy)
 
-    elif library is Backend.ARRAY_API_STRICT and op is not _AtOp.SET:
-        with pytest.raises(Exception, match=r"cast|promote|dtype"):
-            _ = at_op(x, idx, op, 1.1, copy=copy)
+    elif library is Backend.SPARSE:
+        if op in (_AtOp.MIN, _AtOp.MAX):
+            pytest.xfail("no minimum/maximum")
+        z = at_op(x, idx, op, 1.1, copy=copy)
+
+    elif library is Backend.ARRAY_API_STRICT:
+        if op is _AtOp.SET:
+            z = at_op(x, idx, op, 1.1, copy=copy)
+        else:
+            with pytest.raises(Exception, match=r"cast|promote|dtype"):
+                _ = at_op(x, idx, op, 1.1, copy=copy)
+
+    # numpy, torch, and cupy
 
     elif op in (_AtOp.SET, _AtOp.MIN, _AtOp.MAX):
         # There is no __i<op>__ version of these operations
@@ -305,7 +335,7 @@ def test_no_inf_warnings(xp: ModuleType, bool_mask: bool):
         ),
     ],
 )
-@pytest.mark.parametrize("bool_mask", [False, True])
+@pytest.mark.parametrize("bool_mask", [pytest.param(False, marks=sparse_xfail), True])
 def test_gh134(xp: ModuleType, bool_mask: bool, copy: bool | None):
     """
     Test that xpx.at doesn't encroach in a bug of dask.array.Array.__setitem__, which
