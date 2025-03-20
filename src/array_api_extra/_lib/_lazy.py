@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import math
+import operator
 from collections.abc import Callable, Sequence
 from functools import partial, wraps
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, ParamSpec, TypeAlias, cast, overload
+from typing import TYPE_CHECKING, Any, TypeAlias, cast, overload
 
 from ._funcs import broadcast_shapes
 from ._utils import _compat
@@ -27,41 +28,39 @@ else:
     # Sphinx hack
     NumPyObject = Any
 
-P = ParamSpec("P")
-
 
 @overload
-def lazy_apply(  # type: ignore[decorated-any, valid-type]
-    func: Callable[P, Array | ArrayLike],
+def lazy_apply(  # type: ignore[explicit-any,decorated-any]
+    func: Callable[..., Array | ArrayLike],
     *args: Array | complex | None,
     shape: tuple[int | None, ...] | None = None,
     dtype: DType | None = None,
     as_numpy: bool = False,
     xp: ModuleType | None = None,
-    **kwargs: P.kwargs,  # pyright: ignore[reportGeneralTypeIssues]
+    **kwargs: Any,
 ) -> Array: ...  # numpydoc ignore=GL08
 
 
 @overload
-def lazy_apply(  # type: ignore[decorated-any, valid-type]
-    func: Callable[P, Sequence[Array | ArrayLike]],
+def lazy_apply(  # type: ignore[explicit-any,decorated-any]
+    func: Callable[..., Sequence[Array | ArrayLike]],
     *args: Array | complex | None,
     shape: Sequence[tuple[int | None, ...]],
     dtype: Sequence[DType] | None = None,
     as_numpy: bool = False,
     xp: ModuleType | None = None,
-    **kwargs: P.kwargs,  # pyright: ignore[reportGeneralTypeIssues]
+    **kwargs: Any,
 ) -> tuple[Array, ...]: ...  # numpydoc ignore=GL08
 
 
-def lazy_apply(  # type: ignore[valid-type]  # numpydoc ignore=GL07,SA04
-    func: Callable[P, Array | ArrayLike | Sequence[Array | ArrayLike]],
+def lazy_apply(  # type: ignore[explicit-any]  # numpydoc ignore=GL07,SA04
+    func: Callable[..., Array | ArrayLike | Sequence[Array | ArrayLike]],
     *args: Array | complex | None,
     shape: tuple[int | None, ...] | Sequence[tuple[int | None, ...]] | None = None,
     dtype: DType | Sequence[DType] | None = None,
     as_numpy: bool = False,
     xp: ModuleType | None = None,
-    **kwargs: P.kwargs,  # pyright: ignore[reportGeneralTypeIssues]
+    **kwargs: Any,
 ) -> Array | tuple[Array, ...]:
     """
     Lazily apply an eager function.
@@ -162,10 +161,11 @@ def lazy_apply(  # type: ignore[valid-type]  # numpydoc ignore=GL07,SA04
         The outputs will also be returned as a single chunk and you should consider
         rechunking them into smaller chunks afterwards.
 
-        If you want to distribute the calculation across multiple workers, you
-        should use :func:`dask.array.map_blocks`, :func:`dask.array.map_overlap`,
-        :func:`dask.array.blockwise`, or a native Dask wrapper instead of
-        `lazy_apply`.
+        If you want to distribute the calculation across multiple workers and your
+        function is elementwise, you should use :func:`lazy_apply_elementwise` instead.
+        If the function is not elementwise, you should consider writing an ad-hoc
+        variant for Dask using primitives like :func:`dask.array.blockwise`,
+        :func:`dask.array.map_overlap`, or a native Dask algorithm.
 
     Dask wrapping around other backends
         If ``as_numpy=False``, `func` will receive in input eager arrays of the meta
@@ -186,9 +186,9 @@ def lazy_apply(  # type: ignore[valid-type]  # numpydoc ignore=GL07,SA04
 
     See Also
     --------
+    lazy_apply_elementwise
     jax.transfer_guard
     jax.pure_callback
-    dask.array.map_blocks
     dask.array.map_overlap
     dask.array.blockwise
     """
@@ -240,7 +240,7 @@ def lazy_apply(  # type: ignore[valid-type]  # numpydoc ignore=GL07,SA04
     if is_dask_namespace(xp):
         import dask
 
-        metas: list[Array] = [arg._meta for arg in array_args]  # pylint: disable=protected-access    # pyright: ignore[reportAttributeAccessIssue]
+        metas: list[Array] = [arg._meta for arg in array_args]  # type: ignore[attr-defined] # pylint: disable=protected-access  # pyright: ignore[reportAttributeAccessIssue]
         meta_xp = array_namespace(*metas)
 
         wrapped = dask.delayed(  # type: ignore[attr-defined]  # pyright: ignore[reportPrivateImportUsage]
@@ -355,3 +355,145 @@ def _lazy_apply_wrapper(  # type: ignore[explicit-any]  # numpydoc ignore=PR01,R
         return (xp.asarray(out, device=device),)
 
     return wrapper
+
+
+@overload
+def lazy_apply_elementwise(  # type: ignore[explicit-any,decorated-any]
+    func: Callable[..., Array | ArrayLike],
+    *args: Array | complex | None,
+    dtype: DType | None = None,
+    as_numpy: bool = False,
+    xp: ModuleType | None = None,
+    **kwargs: Any,
+) -> Array: ...  # numpydoc ignore=GL08
+
+
+@overload
+def lazy_apply_elementwise(  # type: ignore[explicit-any,decorated-any]
+    func: Callable[..., Sequence[Array | ArrayLike]],
+    *args: Array | complex | None,
+    dtype: Sequence[DType | None],
+    as_numpy: bool = False,
+    xp: ModuleType | None = None,
+    **kwargs: Any,
+) -> tuple[Array, ...]: ...  # numpydoc ignore=GL08
+
+
+def lazy_apply_elementwise(  # type: ignore[explicit-any]
+    func: Callable[..., Array | ArrayLike | Sequence[Array | ArrayLike]],
+    *args: Array | complex | None,
+    dtype: DType | Sequence[DType | None] | None = None,
+    as_numpy: bool = False,
+    xp: ModuleType | None = None,
+    **kwargs: Any,
+) -> Array | tuple[Array, ...]:
+    """
+    Lazily apply an eager elementwise function.
+
+    This is a variant of :func:`lazy_apply` which expects `func` to be elementwise, e.g.
+    each output point must depend exclusively from the corresponding input point in each
+    inputarray. This can result in faster execution on some backends.
+
+    Parameters
+    ----------
+    func : callable
+        As in `lazy_apply`, but in addition it must be elementwise.
+    *args : Array | int | float | complex | bool | None
+        As in `lazy_apply`.
+    dtype : DType | Sequence[DType | None], optional
+        Output dtype or sequence of output dtypes, one for each output of `func`.
+        dtype(s) must belong to the same array namespace as the input arrays.
+        This also informs how many outputs the function has.
+        Default: assume a single output and infer the result type(s) from
+        the input arrays.
+    as_numpy : bool, optional
+        As in `lazy_apply`.
+    xp : array_namespace, optional
+        The standard-compatible namespace for `args`. Default: infer.
+    **kwargs : Any, optional
+        As in `lazy_apply`.
+
+    Returns
+    -------
+    Array | tuple[Array, ...]
+        The result(s) of `func` applied to the input arrays, wrapped in the same
+        array namespace as the inputs.
+        If dtype is omitted or a single dtype, return a single array.
+        Otherwise, return a tuple of arrays.
+
+    See Also
+    --------
+    lazy_apply : General version of this function.
+    dask.array.map_blocks : Dask version of this function.
+
+    Notes
+    -----
+    Unlike in :func:`lazy_apply`, you can't define output shapes that aren't
+    broadcasted from the input arrays.
+
+    Dask
+        Unlike :func:`dask.array.map_blocks`, this function allows for multiple outputs.
+
+    Dask wrapping around other backends
+        If ``as_numpy=False``, `func` will receive in input eager arrays of the meta
+        namespace, as defined by the ``._meta`` attribute of the input Dask arrays. The
+        outputs of `func` will be wrapped by the meta namespace, and then wrapped again
+        by Dask.
+
+    All other backends
+        This function is identical to :func:`lazy_apply`.
+    """
+    args_not_none = [arg for arg in args if arg is not None]
+    array_args = [arg for arg in args_not_none if not is_python_scalar(arg)]
+    if not array_args:
+        msg = "Must have at least one argument array"
+        raise ValueError(msg)
+    if xp is None:
+        xp = array_namespace(*array_args)
+
+    # Normalize and validate dtype
+    dtypes: list[DType]
+
+    if isinstance(dtype, Sequence):
+        multi_output = True
+        if None in dtype:
+            rtype = xp.result_type(*args_not_none)
+            dtypes = [d or rtype for d in dtype]
+        else:
+            dtypes = list(dtype)  # pyright: ignore[reportUnknownArgumentType]
+    else:
+        multi_output = False
+        dtypes = [dtype]
+    del dtype
+
+    if not is_dask_namespace(xp):
+        shape = broadcast_shapes(*(arg.shape for arg in array_args))
+        return lazy_apply(  # pyright: ignore[reportCallIssue]
+            func,  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]
+            *args,
+            shape=[shape] * len(dtypes) if multi_output else shape,  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]
+            dtype=dtypes if multi_output else dtypes[0],
+            as_numpy=as_numpy,
+            xp=xp,
+            **kwargs,
+        )
+
+    # Use da.map_blocks.
+    # We need to handle multiple outputs, which map_blocks can't.
+
+    metas: list[Array] = [arg._meta for arg in array_args]  # type: ignore[attr-defined]  # pylint: disable=protected-access  # pyright: ignore[reportAttributeAccessIssue]
+    meta_xp = array_namespace(*metas)
+
+    wrapped = _lazy_apply_wrapper(func, as_numpy, multi_output, meta_xp)
+    wrapped = partial(wrapped, **kwargs)
+
+    # Hack map_blocks to handle multiple outputs. This intermediate output has bugos
+    # dtype and meta, but dask.array will never know as long as we always provide
+    # explicit dtype and meta.
+    temp = xp.map_blocks(wrapped, *args, dtype=dtypes[0], meta=metas[0])
+    out = tuple(
+        temp.map_blocks(operator.itemgetter(i), dtype=dtype, meta=metas[0])
+        for i, dtype in enumerate(dtypes)
+    )
+
+    return out if multi_output else out[0]

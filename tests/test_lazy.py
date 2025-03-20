@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 import array_api_extra as xpx  # Let some tests bypass lazy_xp_function
-from array_api_extra import lazy_apply
+from array_api_extra import lazy_apply, lazy_apply_elementwise
 from array_api_extra._lib._backends import Backend
 from array_api_extra._lib._testing import xp_assert_equal
 from array_api_extra._lib._utils import _compat
@@ -371,7 +371,7 @@ def check_lazy_apply_kwargs(x: Array, expect_cls: type, as_numpy: bool) -> Array
         return x + 1
 
     # Use explicit namespace to bypass monkey-patching by lazy_xp_function
-    return xpx.lazy_apply(  # pyright: ignore[reportCallIssue]
+    return xpx.lazy_apply(
         eager,
         x,
         z={0: [1, 2]},
@@ -448,6 +448,13 @@ def test_invalid_args():
     with pytest.raises(ValueError, match="multiple shapes but only one dtype"):
         _ = lazy_apply(f, x, shape=[(1,), (2,)], dtype=np.int32)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue,reportArgumentType]
     with pytest.raises(ValueError, match="single shape but multiple dtypes"):
-        _ = lazy_apply(f, x, shape=(1,), dtype=[np.int32, np.int64])  # pyright: ignore[reportCallIssue,reportArgumentType]
+        _ = lazy_apply(f, x, shape=(1,), dtype=[np.int32, np.int64])  # type: ignore[call-overload] # pyright: ignore[reportCallIssue,reportArgumentType]
     with pytest.raises(ValueError, match="2 shapes and 1 dtypes"):
-        _ = lazy_apply(f, x, shape=[(1,), (2,)], dtype=[np.int32])  # type: ignore[arg-type]  # pyright: ignore[reportCallIssue,reportArgumentType]
+        _ = lazy_apply(f, x, shape=[(1,), (2,)], dtype=[np.int32])  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue,reportArgumentType]
+
+    with pytest.raises(ValueError, match="at least one argument array"):
+        _ = lazy_apply_elementwise(f, xp=np)
+    with pytest.raises(ValueError, match="at least one argument array"):
+        _ = lazy_apply_elementwise(f, 1, xp=np)
+    with pytest.raises(ValueError, match="at least one argument array"):
+        _ = lazy_apply_elementwise(f)

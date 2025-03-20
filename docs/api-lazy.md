@@ -10,6 +10,7 @@ lazy backends, e.g. Dask or JAX:
     :toctree: generated
 
     lazy_apply
+    lazy_apply_elementwise
     testing.lazy_xp_function
     testing.patch_lazy_xp_functions
 ```

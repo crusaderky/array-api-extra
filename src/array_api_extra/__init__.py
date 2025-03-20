@@ -14,7 +14,7 @@ from ._lib._funcs import (
     setdiff1d,
     sinc,
 )
-from ._lib._lazy import lazy_apply
+from ._lib._lazy import lazy_apply, lazy_apply_elementwise
 
 __version__ = "0.7.2.dev0"
 
@@ -31,6 +31,7 @@ __all__ = [
     "isclose",
     "kron",
     "lazy_apply",
+    "lazy_apply_elementwise",
     "nunique",
     "pad",
     "setdiff1d",
