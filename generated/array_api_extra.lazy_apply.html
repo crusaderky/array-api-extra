@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="array_api_extra.lazy_apply_elementwise" href="array_api_extra.lazy_apply_elementwise.html" /><link rel="prev" title="Tools for lazy backends" href="../api-lazy.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="array_api_extra.testing.lazy_xp_function" href="array_api_extra.testing.lazy_xp_function.html" /><link rel="prev" title="Tools for lazy backends" href="../api-lazy.html" />
 
     <!-- Generated with Sphinx 8.2.3 and Furo 2024.08.06 -->
         <title>array_api_extra.lazy_apply - array-api-extra 0.7.2.dev0 documentation</title>
@@ -219,7 +219,6 @@
 </li>
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../api-lazy.html">Tools for lazy backends</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of Tools for lazy backends</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
 <li class="toctree-l2 current current-page"><a class="current reference internal" href="#">array_api_extra.lazy_apply</a></li>
-<li class="toctree-l2"><a class="reference internal" href="array_api_extra.lazy_apply_elementwise.html">array_api_extra.lazy_apply_elementwise</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.testing.lazy_xp_function.html">array_api_extra.testing.lazy_xp_function</a></li>
 <li class="toctree-l2"><a class="reference internal" href="array_api_extra.testing.patch_lazy_xp_functions.html">array_api_extra.testing.patch_lazy_xp_functions</a></li>
 </ul>
@@ -360,11 +359,10 @@ will be rechunked into a single chunk.</p>
 </div>
 <p>The outputs will also be returned as a single chunk and you should consider
 rechunking them into smaller chunks afterwards.</p>
-<p>If you want to distribute the calculation across multiple workers and your
-function is elementwise, you should use <a class="reference internal" href="array_api_extra.lazy_apply_elementwise.html#array_api_extra.lazy_apply_elementwise" title="array_api_extra.lazy_apply_elementwise"><code class="xref py py-func docutils literal notranslate"><span class="pre">lazy_apply_elementwise()</span></code></a> instead.
-If the function is not elementwise, you should consider writing an ad-hoc
-variant for Dask using primitives like <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.blockwise.html#dask.array.blockwise" title="(in Dask)"><code class="xref py py-func docutils literal notranslate"><span class="pre">dask.array.blockwise()</span></code></a>,
-<a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_overlap.html#dask.array.map_overlap" title="(in Dask)"><code class="xref py py-func docutils literal notranslate"><span class="pre">dask.array.map_overlap()</span></code></a>, or a native Dask algorithm.</p>
+<p>If you want to distribute the calculation across multiple workers, you
+should use <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_blocks.html#dask.array.map_blocks" title="(in Dask)"><code class="xref py py-func docutils literal notranslate"><span class="pre">dask.array.map_blocks()</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_overlap.html#dask.array.map_overlap" title="(in Dask)"><code class="xref py py-func docutils literal notranslate"><span class="pre">dask.array.map_overlap()</span></code></a>,
+<a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.blockwise.html#dask.array.blockwise" title="(in Dask)"><code class="xref py py-func docutils literal notranslate"><span class="pre">dask.array.blockwise()</span></code></a>, or a native Dask wrapper instead of
+<cite>lazy_apply</cite>.</p>
 </dd>
 <dt>Dask wrapping around other backends</dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">as_numpy=False</span></code>, <cite>func</cite> will receive in input eager arrays of the meta
 namespace, as defined by the <code class="docutils literal notranslate"><span class="pre">._meta</span></code> attribute of the input Dask arrays.
@@ -385,7 +383,7 @@ again by Dask.</p>
 </dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="array_api_extra.lazy_apply_elementwise.html#array_api_extra.lazy_apply_elementwise" title="array_api_extra.lazy_apply_elementwise"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lazy_apply_elementwise</span></code></a>, <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.transfer_guard.html#jax.transfer_guard" title="(in JAX)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax.transfer_guard</span></code></a>, <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.pure_callback.html#jax.pure_callback" title="(in JAX)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax.pure_callback</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_overlap.html#dask.array.map_overlap" title="(in Dask)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dask.array.map_overlap</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.blockwise.html#dask.array.blockwise" title="(in Dask)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dask.array.blockwise</span></code></a></p>
+<p><a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.transfer_guard.html#jax.transfer_guard" title="(in JAX)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax.transfer_guard</span></code></a>, <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.pure_callback.html#jax.pure_callback" title="(in JAX)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax.pure_callback</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_blocks.html#dask.array.map_blocks" title="(in Dask)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dask.array.map_blocks</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.map_overlap.html#dask.array.map_overlap" title="(in Dask)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dask.array.map_overlap</span></code></a>, <a class="reference external" href="https://docs.dask.org/en/stable/generated/dask.array.blockwise.html#dask.array.blockwise" title="(in Dask)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dask.array.blockwise</span></code></a></p>
 </div>
 </dd></dl>
 
@@ -396,12 +394,12 @@ again by Dask.</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="array_api_extra.lazy_apply_elementwise.html">
+          <a class="next-page" href="array_api_extra.testing.lazy_xp_function.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">array_api_extra.lazy_apply_elementwise</div>
+                <div class="title">array_api_extra.testing.lazy_xp_function</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
