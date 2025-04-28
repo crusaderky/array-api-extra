@@ -26,7 +26,6 @@ classifiers = [
   "Typing :: Typed",
 ]
 dynamic = ["version"]
-dependencies = ["array-api-compat>=1.11.2,<2"]
 
 [project.urls]
 Homepage = "https://github.com/data-apis/array-api-extra"
@@ -45,12 +44,13 @@ version.path = "src/array_api_extra/__init__.py"
 [tool.pixi.project]
 channels = ["https://prefix.dev/conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+preview = ["pixi-build"]
 
 [tool.pixi.dependencies]
 python = ">=3.10,<3.14"
-array-api-compat = ">=1.11.2,<2"
 
 [tool.pixi.pypi-dependencies]
+array-api-compat = { git = "https://github.com/crusaderky/array-api-compat.git", rev = "924fc3dadd2eebd24b0e8c14d1e08e1a80ae7143" }
 array-api-extra = { path = ".", editable = true }
 
 [tool.pixi.feature.lint.dependencies]
@@ -61,13 +61,16 @@ basedmypy = ">=2.10.0"
 basedpyright = ">=1.28.5"
 numpydoc = ">=1.8.0,<2"
 # import dependencies for mypy:
-array-api-strict = ">=2.3.1"
 numpy = ">=2.1.3"
 pytest = ">=8.3.5"
 hypothesis = ">=6.131.8"
 dask-core = ">=2025.3.0"     # No distributed, tornado, etc.
 # NOTE: don't add jax, pytorch, sparse, cupy here
 # as they slow down mypy and are not portable across target OSs
+
+[tool.pixi.feature.lint.pypi-dependencies]
+array-api-strict = { git = "https://github.com/data-apis/array-api-strict.git", rev = "17c7c402e66a1a211b7bc56bbade8fd8598309f9" }
+
 
 [tool.pixi.feature.lint.tasks]
 pre-commit-install = { cmd = "pre-commit install", description = "Install pre-commit"}
@@ -81,8 +84,10 @@ lint = { depends-on = ["pre-commit", "pylint", "mypy", "pyright"] , description 
 pytest = ">=8.3.5"
 pytest-cov = ">=6.1.1"
 hypothesis = ">=6.131.8"
-array-api-strict = ">=2.3.1"
 numpy = ">=1.22.0"
+
+[tool.pixi.feature.tests.pypi-dependencies]
+array-api-strict = { git = "https://github.com/data-apis/array-api-strict.git", rev = "17c7c402e66a1a211b7bc56bbade8fd8598309f9" }
 
 [tool.pixi.feature.tests.tasks]
 tests = { cmd = "pytest -v", description = "Run tests"}
@@ -237,8 +242,8 @@ disallow_any_expr = false
 disable_error_code = ["redundant-expr", "unreachable", "no-any-return"]
 
 [[tool.mypy.overrides]]
-# slow/unavailable on Windows; do not add to the lint env
-module = ["dask.*", "jax.*", "torch.*"]
+# slow/unavailable; do not add to the lint env
+module = ["cupy.*", "jax.*", "torch.*"]
 ignore_missing_imports = true
 
 # pyright
@@ -252,9 +257,8 @@ typeCheckingMode = "all"
 # https://github.com/data-apis/array-api-typing
 reportAny = false
 reportExplicitAny = false
-# no array-api-strict type stubs; pytest fixtures
+# missing or incorrect type stubs; pytest fixtures
 reportUnknownMemberType = false
-# no array-api-compat type stubs; pytest fixtures
 reportUnknownVariableType = false
 # Redundant with mypy checks
 reportMissingImports = false
